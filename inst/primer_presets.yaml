@@ -1,0 +1,65 @@
+# AMF 18S/SSU primer presets. Sequences are the inner/sequenced pair
+# (cutadapt strips these off the reads) -- not the outer nested-PCR primers.
+# See DESIGN.md section 5, Step 2 for the source table and citations.
+# dois: verified DOIs for each paper named in `citation`, in the same order --
+# rendered as clickable links next to the citation text.
+
+- id: ns31_aml2
+  label: "NS31 / AML2"
+  fwd: TTGGAGGGCAAGTCTGGTGCC
+  rev: GAACCCAAACACTTTGGTTTCC
+  region: "SSU (~550 bp)"
+  platform: "2x300 / long-read"
+  default_for: null
+  citation: "NS31: Simon et al., Appl. Environ. Microbiol. 58:291-295 (1992); AML2: Lee, Lee & Young, FEMS Microbiol. Ecol. 65:339-349 (2008)"
+  dois: ["10.1128/aem.58.1.291-295.1992", "10.1111/j.1574-6941.2008.00531.x"]
+
+- id: nu_ssu_0595_0948
+  label: "nu-SSU-0595 / nu-SSU-0948 (default, 2x250)"
+  fwd: CGGTAATTCCAGCTCCAATAG
+  rev: TTGATTAATGAAAACATCCTTGGC
+  region: "V4 (~400 bp)"
+  platform: "2x250 (safe ~100 bp overlap)"
+  default_for: "2x250"
+  citation: "Taxonomic assignment of AMF in an 18S dataset -- Tamarix aphylla case study, Mycorrhiza 30:243-255 (2020)"
+  dois: ["10.1007/s00572-020-00946-y"]
+
+- id: nu_ssu_0450_0899
+  label: "nu-SSU-0450 / nu-SSU-0899 (default, 2x300)"
+  fwd: CGCAAATTACCCAATCCC
+  rev: ATAAATCCAAGAATTTCACCTC
+  region: "V3-V4 (~490 bp)"
+  platform: "2x300 (~37 bp overlap)"
+  default_for: "2x300"
+  citation: "Stefani et al., Front. Plant Sci. 11:1206 (2020)"
+  dois: ["10.3389/fpls.2020.01206"]
+
+- id: amv45nf_amdgr
+  label: "AMV4.5NF / AMDGR"
+  fwd: AAGCTCGTAGTTGAATTTCG
+  rev: CCCAACTATCCCTATTAATCAT
+  region: "V4 (~250-300 bp)"
+  platform: "2x250 / 2x300"
+  default_for: null
+  citation: "Sato et al., Grassland Sci. 51:179-181 (2005); commonly used with AML1/AML2 in nested PCR designs for AMF community profiling"
+  dois: ["10.1111/j.1744-697X.2005.00023.x"]
+
+- id: wanda_aml2
+  label: "WANDA / AML2"
+  fwd: CAGCCGCGGTAATTCCAGCT
+  rev: GAACCCAAACACTTTGGTTTCC
+  region: "V4 (~520 bp)"
+  platform: "2x300 only"
+  default_for: null
+  citation: "WANDA: Dumbrell et al., New Phytol. 190:794-804 (2011); AML2: Lee et al. (2008)"
+  dois: ["10.1111/j.1469-8137.2010.03636.x", "10.1111/j.1574-6941.2008.00531.x"]
+
+- id: aml1_aml2
+  label: "AML1 / AML2 (outer/nested/PacBio)"
+  fwd: ATCAACTTTCGATGGTAGGATAGA
+  rev: GAACCCAAACACTTTGGTTTCC
+  region: "V3-V4-V5 (~795 bp)"
+  platform: "PacBio long-read, or outer round of nested PCR"
+  default_for: "nested"
+  citation: "Lee, Lee & Young, FEMS Microbiol. Ecol. 65:339-349 (2008)"
+  dois: ["10.1111/j.1574-6941.2008.00531.x"]

@@ -1,0 +1,7 @@
+sample_id,site,treatment
+1-827-1-1-1-Root-AMF,FieldA,Control
+10-405-1-5-1-Root-AMF,FieldA,Treated
+11-419-1-6-5-Root-AMF,FieldB,Control
+12-545-1-7-5-Root-AMF,FieldB,Treated
+13a-533-1-8-4-Root-AMF,FieldC,Control
+14-416-1-8-2-Root-AMF,FieldC,Treated

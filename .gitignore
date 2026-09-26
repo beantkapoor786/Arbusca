@@ -1,0 +1,11 @@
+# R / RStudio
+.Rhistory
+.RData
+.Rproj.user/
+.Ruserdata
+
+# macOS
+.DS_Store
+
+# Local analysis scripts
+comparison_amf_arbusca.R
