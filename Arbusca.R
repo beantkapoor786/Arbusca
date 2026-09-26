@@ -63,6 +63,16 @@ ui <- page_fluid(
     "Shiny.addCustomMessageHandler('amf-scroll-log', function(id) {
        var el = document.getElementById(id);
        if (el) el.scrollTop = el.scrollHeight;
+     });
+     var amfZoom = 1;
+     document.addEventListener('keydown', function(e) {
+       if (!(e.metaKey || e.ctrlKey)) return;
+       if (e.key === '=' || e.key === '+') amfZoom = Math.min(amfZoom + 0.1, 3);
+       else if (e.key === '-' || e.key === '_') amfZoom = Math.max(amfZoom - 0.1, 0.3);
+       else if (e.key === '0') amfZoom = 1;
+       else return;
+       e.preventDefault();
+       document.documentElement.style.zoom = amfZoom;
      });"
   ))),
   tags$header(
