@@ -147,8 +147,9 @@ mod_merge_server <- function(id, rv, sample_table) {
     output$length_hist <- shiny::renderPlot({
       res <- rv$artifacts[[step_id]]
       shiny::req(res)
-      graphics::hist(res$asv_lengths, breaks = seq(min(res$asv_lengths) - 0.5, max(res$asv_lengths) + 0.5, by = 1),
-                      main = NULL, xlab = "ASV length (bp)", col = "#0f766e", border = "white")
+      counts <- table(factor(res$asv_lengths, levels = seq(min(res$asv_lengths) - 2, max(res$asv_lengths) + 2)))
+      graphics::barplot(counts, space = 0.1, main = NULL, xlab = "ASV length (bp)", ylab = "Number of ASVs",
+                        col = "#0f766e", border = "white")
     })
 
     output$merged_table <- DT::renderDataTable({

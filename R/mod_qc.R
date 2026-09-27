@@ -73,9 +73,7 @@ mod_qc_ui <- function(id) {
       )
       ),
       result_card("Filter and trim reads",
-        run_row(ns, "Filter and trim"),
-        shiny::h6("Log", class = "mt-3"),
-        mod_logpanel_ui(ns("log"))
+        run_row(ns, "Filter and trim")
       ),
       shiny::uiOutput(ns("vb_reads")),
       result_card("Read tracking", dt_output(ns("track_table")), results_placeholder("Run this step to see reads in and out for each sample."))
@@ -312,7 +310,5 @@ mod_qc_server <- function(id, rv, sample_table) {
         "Retained" = if (rin > 0) sprintf("%.1f%%", 100 * rout / rin) else "NA"
       ))
     })
-
-    mod_logpanel_server("log", shiny::reactive(rv$log[[step_id]] %||% character(0)))
   })
 }
