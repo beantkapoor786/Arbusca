@@ -22,7 +22,8 @@ otu_matrix <- function(ps) {
 figure_plotly <- function(p) {
   plotly::ggplotly(p, tooltip = "text") |>
     plotly::layout(hoverlabel = list(bgcolor = "white", font = list(family = "Inter, sans-serif")),
-                   font = list(family = "Inter, sans-serif")) |>
+                   font = list(family = "Inter, sans-serif"),
+                   paper_bgcolor = "white", plot_bgcolor = "white") |>
     plotly::config(displaylogo = FALSE, modeBarButtonsToRemove = c("lasso2d", "select2d"))
 }
 

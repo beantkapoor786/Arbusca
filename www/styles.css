@@ -12,7 +12,19 @@
   --amf-muted: #5b6b78;
   --amf-border: #dde1e5;
   --amf-surface: #ffffff;
+  --amf-surface-2: #eef1f3;     /* table headers, log console */
+  --amf-stripe: #f8f9fa;        /* zebra rows */
+  --amf-empty-bg: #fafbfb;      /* empty-state placeholders */
   --amf-bg: #f5f6f7;
+  --amf-fg: #1f2933;
+  --amf-border-strong: #c4cbd1; /* input borders, dashed outlines */
+  --amf-line: #d3d9de;          /* stepper connectors */
+  --amf-line-strong: #b6bfc7;   /* stepper markers */
+  --amf-chip-bg: #e6e9ec;       /* idle badge, help icon */
+  --amf-chip-fg: #4a5560;
+  --amf-chip-hover: #cbd3d9;
+  --amf-queued-bg: #f3e8cf;
+  --amf-queued-fg: #6b4a00;
   --amf-radius: 0.4rem;
   --amf-shadow: 0 1px 2px rgba(16, 24, 32, 0.06);
   --amf-space-1: 0.25rem;
@@ -40,8 +52,8 @@ code, .amf-mono { font-family: var(--bs-font-monospace); }
 
 /* 4. Buttons & forms ------------------------------------------------------- */
 .btn { border-radius: var(--amf-radius); font-weight: 500; }
-.btn-outline-secondary { color: var(--amf-muted); border-color: #c4cbd1; }
-.btn-outline-secondary:hover { background: var(--amf-bg); color: #1f2933; border-color: #9aa5ae; }
+.btn-outline-secondary { color: var(--amf-muted); border-color: var(--amf-border-strong); }
+.btn-outline-secondary:hover { background: var(--amf-bg); color: var(--amf-fg); border-color: var(--amf-muted); }
 .form-label, label { font-weight: 500; }
 
 /* 5. Status badges --------------------------------------------------------- */
@@ -54,8 +66,8 @@ code, .amf-mono { font-family: var(--bs-font-monospace); }
   font-weight: 600;
   letter-spacing: 0.02em;
 }
-.amf-status-idle    { background: #e6e9ec; color: #4a5560; }
-.amf-status-queued  { background: #f3e8cf; color: #6b4a00; }
+.amf-status-idle    { background: var(--amf-chip-bg); color: var(--amf-chip-fg); }
+.amf-status-queued  { background: var(--amf-queued-bg); color: var(--amf-queued-fg); }
 .amf-status-running { background: var(--amf-primary); color: #fff; animation: amf-pulse 1.4s ease-in-out infinite; }
 .amf-status-success { background: var(--amf-success); color: #fff; }
 .amf-status-error   { background: var(--amf-danger); color: #fff; }
@@ -71,15 +83,15 @@ code, .amf-mono { font-family: var(--bs-font-monospace); }
   height: 1rem;
   margin-left: 0.3rem;
   border-radius: 50%;
-  background: #dfe4e8;
-  color: #3d4852;
+  background: var(--amf-chip-bg);
+  color: var(--amf-chip-fg);
   font-size: 0.68rem;
   font-weight: 700;
   line-height: 1;
   cursor: help;
   user-select: none;
 }
-.amf-help-icon:hover { background: #cbd3d9; }
+.amf-help-icon:hover { background: var(--amf-chip-hover); }
 
 /* 7. Tables (DT) ----------------------------------------------------------- */
 .amf-dt { overflow: auto; margin-bottom: var(--amf-space-3); max-height: 28rem; }
@@ -88,11 +100,11 @@ code, .amf-mono { font-family: var(--bs-font-monospace); }
   position: sticky;
   top: 0;
   z-index: 1;
-  background: #eef1f3;
-  color: #1f2933;
+  background: var(--amf-surface-2);
+  color: var(--amf-fg);
   border-bottom: 1px solid var(--amf-border);
 }
-.amf-dt table.dataTable tbody tr:nth-child(even) { background: #f8f9fa; }
+.amf-dt table.dataTable tbody tr:nth-child(even) { background: var(--amf-stripe); }
 .amf-dt table.dataTable td, .amf-dt table.dataTable th { padding: 0.3rem 0.6rem; }
 .amf-dt td.dt-right, .amf-dt td.dt-type-numeric { font-variant-numeric: tabular-nums; }
 
@@ -100,8 +112,8 @@ code, .amf-mono { font-family: var(--bs-font-monospace); }
 .amf-log-console {
   font-family: var(--bs-font-monospace);
   font-size: 0.78rem;
-  background: #f1f3f5;
-  color: #1f2933;
+  background: var(--amf-surface-2);
+  color: var(--amf-fg);
   border: 1px solid var(--amf-border);
   padding: 0.75rem;
   border-radius: var(--amf-radius);
@@ -129,6 +141,7 @@ code, .amf-mono { font-family: var(--bs-font-monospace); }
   box-shadow: var(--amf-shadow);
 }
 .amf-nav-left { justify-self: start; }
+.amf-nav-right { justify-self: end; display: flex; align-items: center; }
 .amf-brand { justify-self: center; }
 .amf-brand-name { font-weight: 700; font-size: 1.6rem; letter-spacing: -0.01em; line-height: 1.2; }
 .amf-tagline { color: var(--amf-muted); font-size: 0.8rem; }
@@ -144,19 +157,19 @@ code, .amf-mono { font-family: var(--bs-font-monospace); }
   padding: 0.25rem 0.4rem; border-radius: var(--amf-radius);
   color: var(--amf-muted); text-decoration: none; font-size: 0.78rem; white-space: nowrap;
 }
-.amf-step:hover { background: var(--amf-bg); color: #1f2933; }
+.amf-step:hover { background: var(--amf-bg); color: var(--amf-fg); }
 .amf-step-marker {
   display: inline-flex; align-items: center; justify-content: center;
   width: 1.5rem; height: 1.5rem; border-radius: 50%; font-size: 0.72rem; font-weight: 600;
-  border: 1.5px solid #b6bfc7; background: var(--amf-surface); color: var(--amf-muted);
+  border: 1.5px solid var(--amf-line-strong); background: var(--amf-surface); color: var(--amf-muted);
 }
-.amf-step.is-active { color: #1f2933; font-weight: 600; background: var(--amf-primary-soft); }
+.amf-step.is-active { color: var(--amf-fg); font-weight: 600; background: var(--amf-primary-soft); }
 .amf-step.is-active .amf-step-marker { border-color: var(--amf-primary); color: var(--amf-primary); }
 .amf-step.is-success .amf-step-marker { background: var(--amf-success); border-color: var(--amf-success); color: #fff; }
 .amf-step.is-error .amf-step-marker { background: var(--amf-danger); border-color: var(--amf-danger); color: #fff; }
 .amf-step.is-running .amf-step-marker { background: var(--amf-primary); border-color: var(--amf-primary); color: #fff; }
 .amf-step.is-queued .amf-step-marker { border-color: var(--amf-warning); color: var(--amf-warning); }
-.amf-step-line { flex: 1 0 0.5rem; min-width: 0.5rem; height: 2px; background: #d3d9de; }
+.amf-step-line { flex: 1 0 0.5rem; min-width: 0.5rem; height: 2px; background: var(--amf-line); }
 /* 12 steps don't fit with labels on laptop screens: keep only the active
    step's label there (the rest keep their number + hover title). */
 @media (max-width: 1300px) { .amf-step:not(.is-active) .amf-step-label { display: none; } }
@@ -172,7 +185,7 @@ code, .amf-mono { font-family: var(--bs-font-monospace); }
 .amf-proceed {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 1030;
   display: flex; justify-content: flex-end; padding: 0.6rem 1.5rem;
-  background: rgba(255, 255, 255, 0.96); border-top: 1px solid var(--amf-border);
+  background: color-mix(in srgb, var(--amf-surface) 96%, transparent); border-top: 1px solid var(--amf-border);
   box-shadow: 0 -1px 3px rgba(16, 24, 32, 0.06);
 }
 .amf-proceed .btn { font-size: 0.95rem; padding: 0.45rem 1.1rem; }
@@ -181,7 +194,7 @@ code, .amf-mono { font-family: var(--bs-font-monospace); }
 .amf-step-head { margin-bottom: 1rem; text-align: center; }
 .amf-step-title { margin: 0 0 0.2rem; font-weight: 700; }
 .amf-step-desc { margin: 0; color: var(--amf-muted); }
-.amf-params-card .card-header, .amf-result-card .card-header { display: flex; align-items: center; gap: 0.4rem; background: #fff; }
+.amf-params-card .card-header, .amf-result-card .card-header { display: flex; align-items: center; gap: 0.4rem; background: var(--amf-surface); }
 .amf-results-col { display: flex; flex-direction: column; gap: 1rem; }
 .amf-param-group { padding-bottom: 0.9rem; margin-bottom: 0.9rem; border-bottom: 1px solid var(--amf-border); }
 .amf-param-group:last-of-type { border-bottom: 0; margin-bottom: 0; }
@@ -194,7 +207,7 @@ code, .amf-mono { font-family: var(--bs-font-monospace); }
 .amf-run-row .btn-primary { padding-left: 1.1rem; padding-right: 1.1rem; }
 .amf-empty {
   display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 2rem 1rem;
-  color: var(--amf-muted); border: 1px dashed #c4cbd1; border-radius: var(--amf-radius); background: #fafbfb;
+  color: var(--amf-muted); border: 1px dashed var(--amf-border-strong); border-radius: var(--amf-radius); background: var(--amf-empty-bg);
 }
 .amf-result-card .form-group, .amf-params-card .form-group { margin-bottom: 0.6rem; }
 
@@ -207,19 +220,19 @@ code, .amf-mono { font-family: var(--bs-font-monospace); }
 /* Plots not rendered yet */
 .amf-result-card .shiny-plot-output:empty {
   display: flex; align-items: center; justify-content: center; min-height: 6rem;
-  border: 1px dashed #c4cbd1; border-radius: var(--amf-radius); background: #fafbfb; color: var(--amf-muted);
+  border: 1px dashed var(--amf-border-strong); border-radius: var(--amf-radius); background: var(--amf-empty-bg); color: var(--amf-muted);
 }
 .amf-result-card .shiny-plot-output:empty::before { content: "Nothing to show yet. Run the step to generate this plot."; font-size: 0.85rem; padding: 0 1rem; text-align: center; }
 /* Spinner while an output recalculates */
 .shiny-plot-output.recalculating, .amf-dt .recalculating, .amf-results-col .shiny-html-output.recalculating { position: relative; opacity: 0.55; }
 .shiny-plot-output.recalculating::after, .amf-dt .recalculating::after {
   content: ""; position: absolute; top: 50%; left: 50%; width: 1.6rem; height: 1.6rem; margin: -0.8rem 0 0 -0.8rem;
-  border: 3px solid #c4cbd1; border-top-color: var(--amf-primary); border-radius: 50%; animation: amf-rotate 0.8s linear infinite;
+  border: 3px solid var(--amf-border-strong); border-top-color: var(--amf-primary); border-radius: 50%; animation: amf-rotate 0.8s linear infinite;
 }
 @media (prefers-reduced-motion: reduce) { .shiny-plot-output.recalculating::after, .amf-dt .recalculating::after { animation: none; } }
 
 /* 16. Value boxes and step summary ---------------------------------------- */
-.amf-vb.bslib-value-box, .amf-vb { background: var(--amf-surface); color: #1f2933; border: 1px solid var(--amf-border); box-shadow: var(--amf-shadow); border-left: 3px solid var(--amf-primary); }
+.amf-vb.bslib-value-box, .amf-vb { background: var(--amf-surface); color: var(--amf-fg); border: 1px solid var(--amf-border); box-shadow: var(--amf-shadow); border-left: 3px solid var(--amf-primary); }
 .amf-vb .value-box-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--amf-muted); font-weight: 600; }
 .amf-vb .value-box-value { font-size: 1.4rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .amf-io { display: grid; grid-template-columns: 5rem 1fr; gap: 0.35rem 0.75rem; margin: 0; font-size: 0.85rem; }
@@ -251,3 +264,102 @@ code, .amf-mono { font-family: var(--bs-font-monospace); }
 .card-body > .btn, .card-body > .shiny-download-link,
 .card-body .shiny-html-output > .btn, .card-body .shiny-html-output > .shiny-download-link,
 .card-body > a.action-button, .card-body .shiny-html-output > a.action-button { align-self: flex-start; }
+
+/* 22. Dark theme (header switch sets data-bs-theme="dark" on <html>).
+   Redefines the tokens above; the rest overrides colors that the bslib
+   theme compiles in as literal light values. Plots keep their white
+   background in both themes, matching the downloaded PNGs. */
+[data-bs-theme="dark"] {
+  --amf-primary: #2a8299;
+  --amf-primary-soft: #173640;
+  --amf-success: #3d9a64;
+  --amf-warning: #d09a2a;
+  --amf-danger: #d0584b;
+  --amf-muted: #9aa7b2;
+  --amf-border: #313a42;
+  --amf-surface: #1c2329;
+  --amf-surface-2: #232b32;
+  --amf-stripe: #20272d;
+  --amf-empty-bg: #192026;
+  --amf-bg: #14191e;
+  --amf-fg: #e3e8ec;
+  --amf-border-strong: #45505a;
+  --amf-line: #3a444d;
+  --amf-line-strong: #56626d;
+  --amf-chip-bg: #313a42;
+  --amf-chip-fg: #c9d1d8;
+  --amf-chip-hover: #3f4952;
+  --amf-queued-bg: #3a3020;
+  --amf-queued-fg: #e2c07a;
+  --amf-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --bs-body-bg: var(--amf-bg);
+  --bs-body-color: var(--amf-fg);
+  --bs-emphasis-color: #ffffff;
+  --bs-secondary-color: var(--amf-muted);
+  --bs-border-color: var(--amf-border);
+}
+[data-bs-theme="dark"] body { color: var(--amf-fg); }
+[data-bs-theme="dark"] .card {
+  --bs-card-bg: var(--amf-surface); --bs-card-cap-bg: var(--amf-surface);
+  --bs-card-color: var(--amf-fg); --bs-card-border-color: var(--amf-border);
+}
+[data-bs-theme="dark"] .text-muted { color: var(--amf-muted) !important; }
+/* Outline-primary buttons (e.g. "Use this", "Validate & save"): the light
+   theme's dark teal is unreadable on dark surfaces, so use a lighter teal. */
+[data-bs-theme="dark"] .btn-outline-primary {
+  --bs-btn-color: #6cc3d8; --bs-btn-border-color: #3d93a8;
+  --bs-btn-hover-color: #ffffff; --bs-btn-hover-bg: var(--amf-primary); --bs-btn-hover-border-color: var(--amf-primary);
+  --bs-btn-active-color: #ffffff; --bs-btn-active-bg: var(--amf-primary); --bs-btn-active-border-color: var(--amf-primary);
+}
+[data-bs-theme="dark"] .form-control, [data-bs-theme="dark"] .form-select,
+[data-bs-theme="dark"] .selectize-input, [data-bs-theme="dark"] .selectize-dropdown,
+[data-bs-theme="dark"] .input-group-text {
+  background-color: var(--amf-surface-2); color: var(--amf-fg); border-color: var(--amf-border-strong);
+}
+[data-bs-theme="dark"] .selectize-input input, [data-bs-theme="dark"] .selectize-dropdown .option { color: var(--amf-fg); }
+[data-bs-theme="dark"] .selectize-dropdown .active { background-color: var(--amf-primary-soft); color: var(--amf-fg); }
+[data-bs-theme="dark"] .form-control:disabled, [data-bs-theme="dark"] .form-control[readonly] { background-color: var(--amf-bg); }
+[data-bs-theme="dark"] pre, [data-bs-theme="dark"] pre.shiny-text-output {
+  background-color: var(--amf-surface-2); color: var(--amf-fg); border-color: var(--amf-border);
+}
+[data-bs-theme="dark"] code { color: #f08ca0; }
+[data-bs-theme="dark"] .alert-warning { background: #2e2716; color: #efd28f; border-color: #4d3f1c; }
+[data-bs-theme="dark"] .alert-danger { background: #33201e; color: #f0b2aa; border-color: #5a2f2a; }
+[data-bs-theme="dark"] .alert-success { background: #1a2e22; color: #a8dcb9; border-color: #2c4a37; }
+[data-bs-theme="dark"] .alert-info { background: #1a2a30; color: #b5d8e2; border-color: #2a4550; }
+[data-bs-theme="dark"] .amf-dt table.dataTable, [data-bs-theme="dark"] .dataTables_wrapper { color: var(--amf-fg); }
+[data-bs-theme="dark"] .amf-dt table.dataTable tbody tr { background: var(--amf-surface); }
+[data-bs-theme="dark"] .amf-dt table.dataTable tbody tr:nth-child(even) { background: var(--amf-stripe); }
+[data-bs-theme="dark"] .shiny-plot-output img, [data-bs-theme="dark"] .plotly.html-widget { border-radius: var(--amf-radius); }
+
+/* 23. Theme switch (navbar, top right): the knob slides across the track
+   and its icon turns from sun to moon. */
+.amf-theme-toggle { border: 0; padding: 0; background: none; cursor: pointer; border-radius: 999px; line-height: 0; }
+.amf-theme-track {
+  position: relative; display: inline-flex; align-items: center; justify-content: space-between;
+  box-sizing: border-box; width: 56px; height: 28px; padding: 0 7px; border-radius: 999px;
+  background: #e4ebef; border: 1px solid var(--amf-border); font-size: 12px;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+.amf-theme-icon { opacity: 0.55; transition: opacity 0.3s ease; }
+.amf-theme-sun { color: #c98a00; }
+.amf-theme-moon { color: #6c7a86; }
+.amf-theme-knob {
+  position: absolute; top: 2px; left: 3px; width: 22px; height: 22px; border-radius: 50%;
+  background: #ffffff; box-shadow: 0 1px 3px rgba(16, 24, 32, 0.3);
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease;
+}
+.amf-theme-knob > span {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 12px;
+  transition: opacity 0.3s ease, transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.amf-theme-knob-sun { color: #e0a100; }
+.amf-theme-knob-moon { color: #cfe0ff; opacity: 0; transform: rotate(-90deg); }
+.amf-theme-toggle:hover .amf-theme-track { border-color: var(--amf-muted); }
+[data-bs-theme="dark"] .amf-theme-track { background: #26323b; }
+[data-bs-theme="dark"] .amf-theme-knob { transform: translateX(26px); background: #0f171c; }
+[data-bs-theme="dark"] .amf-theme-knob-sun { opacity: 0; transform: rotate(90deg); }
+[data-bs-theme="dark"] .amf-theme-knob-moon { opacity: 1; transform: rotate(0deg); }
+@media (prefers-reduced-motion: reduce) {
+  .amf-theme-track, .amf-theme-knob, .amf-theme-knob > span, .amf-theme-icon { transition: none; }
+}

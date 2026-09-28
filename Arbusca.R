@@ -55,9 +55,16 @@ next_step_id <- function(step_id) {
   names(ALL_STEPS)[idx + 1]
 }
 
-ui <- page_fluid(
+# A function, not a fixed page, so each page load starts in the theme saved
+# in the app config (see the dark_mode observer in server).
+ui <- function(req) page_fluid(
   title = "Arbusca",
   theme = amf_theme,
+  # Set before the body renders, so the page never flashes the other theme.
+  tags$head(tags$script(HTML(sprintf(
+    "document.documentElement.setAttribute('data-bs-theme', '%s');",
+    if (identical(read_app_config()$theme, "dark")) "dark" else "light"
+  )))),
   tags$head(tags$link(rel = "stylesheet", href = paste0("styles.css?v=", as.integer(file.mtime("www/styles.css"))))),
   tags$head(tags$script(HTML(
     "Shiny.addCustomMessageHandler('amf-scroll-log', function(id) {
@@ -73,12 +80,38 @@ ui <- page_fluid(
        else return;
        e.preventDefault();
        document.documentElement.style.zoom = amfZoom;
+     });
+     document.addEventListener('click', function(e) {
+       if (!e.target.closest('#amf-theme-toggle')) return;
+       var mode = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+       document.documentElement.setAttribute('data-bs-theme', mode);
+       document.getElementById('amf-theme-toggle').setAttribute('aria-checked', mode === 'dark');
+       window.dispatchEvent(new Event('resize'));  // let plots re-measure
+       Shiny.setInputValue('dark_mode', mode);
+     });
+     document.addEventListener('DOMContentLoaded', function() {
+       document.getElementById('amf-theme-toggle').setAttribute('aria-checked',
+         document.documentElement.getAttribute('data-bs-theme') === 'dark');
      });"
   ))),
   tags$header(
     class = "amf-navbar",
     div(class = "amf-nav-left", span(class = "amf-tagline d-none d-lg-inline", "AMF 18S/SSU DADA2 pipeline")),
-    div(class = "amf-brand", span(class = "amf-brand-name", "Arbusca"))
+    div(class = "amf-brand", span(class = "amf-brand-name", "Arbusca")),
+    div(class = "amf-nav-right",
+      tags$button(
+        id = "amf-theme-toggle", type = "button", class = "amf-theme-toggle",
+        role = "switch", `aria-checked` = "false", `aria-label` = "Dark mode", title = "Toggle dark mode",
+        span(class = "amf-theme-track",
+          span(class = "amf-theme-icon amf-theme-sun", bs_icon("sun-fill")),
+          span(class = "amf-theme-icon amf-theme-moon", bs_icon("moon-stars-fill")),
+          span(class = "amf-theme-knob",
+            span(class = "amf-theme-knob-sun", bs_icon("sun-fill")),
+            span(class = "amf-theme-knob-moon", bs_icon("moon-stars-fill"))
+          )
+        )
+      )
+    )
   ),
   uiOutput("stepper"),
   div(class = "amf-main", uiOutput("main_panel")),
@@ -86,6 +119,11 @@ ui <- page_fluid(
 )
 
 server <- function(input, output, session) {
+  observeEvent(input$dark_mode, {
+    cfg <- read_app_config()
+    if (!identical(cfg$theme, input$dark_mode)) write_app_config(utils::modifyList(cfg, list(theme = input$dark_mode)))
+  })
+
   rv <- reactiveValues(
     project_dir = NULL,
     active_step = "setup",   # which step's panel is shown (navigation)
