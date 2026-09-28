@@ -176,54 +176,59 @@ mod_output_server <- function(id, rv, sample_table) {
 
       rv$status[[step_id]] <- "RUNNING"
 
-      result <- tryCatch({
-        seqtab_nochim <- readRDS(seqtab_path())
-        assignments <- readRDS(assignments_path())
+      # The build runs synchronously here, so doing it in this observer would
+      # set RUNNING and SUCCESS within one flush and the badge would never show
+      # RUNNING. Run it once this flush has reached the browser instead.
+      session$onFlushed(function() shiny::isolate({
+        result <- tryCatch({
+          seqtab_nochim <- readRDS(seqtab_path())
+          assignments <- readRDS(assignments_path())
 
-        # assignments$asv_id (ASV1, ASV2, ...) was assigned in colnames(seqtab_nochim)
-        # order by write_asv_fasta() back in Step 8, so this rename is positional,
-        # not a text match -- it just gives both tables the same taxon names.
-        colnames(seqtab_nochim) <- assignments$asv_id
+          # assignments$asv_id (ASV1, ASV2, ...) was assigned in colnames(seqtab_nochim)
+          # order by write_asv_fasta() back in Step 8, so this rename is positional,
+          # not a text match -- it just gives both tables the same taxon names.
+          colnames(seqtab_nochim) <- assignments$asv_id
 
-        meta <- metadata_df()
-        rownames(meta) <- as.character(meta[[input$sample_col]])
-        common <- intersect(rownames(seqtab_nochim), rownames(meta))
-        if (length(common) == 0) {
-          stop("No sample names in the metadata match the pipeline's sample names -- check the selected column.")
+          meta <- metadata_df()
+          rownames(meta) <- as.character(meta[[input$sample_col]])
+          common <- intersect(rownames(seqtab_nochim), rownames(meta))
+          if (length(common) == 0) {
+            stop("No sample names in the metadata match the pipeline's sample names -- check the selected column.")
+          }
+
+          otu <- phyloseq::otu_table(seqtab_nochim[common, , drop = FALSE], taxa_are_rows = FALSE)
+
+          tax_cols <- intersect(c("family", "genus", "vt", "lineage", "classification"), names(assignments))
+          tax_mat <- as.matrix(assignments[, tax_cols, drop = FALSE])
+          rownames(tax_mat) <- assignments$asv_id
+          tax <- phyloseq::tax_table(tax_mat)
+
+          samp <- phyloseq::sample_data(meta[common, , drop = FALSE])
+
+          ps <- phyloseq::phyloseq(otu, tax, samp)
+
+          out_dir <- file.path(rv$project_dir, "05_output")
+          fs::dir_create(out_dir)
+          saveRDS(ps, file.path(out_dir, "phyloseq.rds"))
+
+          list(
+            phyloseq = ps,
+            n_samples = phyloseq::nsamples(ps),
+            n_taxa = phyloseq::ntaxa(ps),
+            unmatched_samples = setdiff(st$sample, common)
+          )
+        }, error = function(e) e)
+
+        if (inherits(result, "error")) {
+          rv$status[[step_id]] <- "ERROR"
+          build_error(conditionMessage(result))
+        } else {
+          build_error(NULL)
+          rv$artifacts[[step_id]] <- result
+          rv$status[[step_id]] <- "SUCCESS"
+          invalidate_analyses(rv)
         }
-
-        otu <- phyloseq::otu_table(seqtab_nochim[common, , drop = FALSE], taxa_are_rows = FALSE)
-
-        tax_cols <- intersect(c("family", "genus", "vt", "lineage", "classification"), names(assignments))
-        tax_mat <- as.matrix(assignments[, tax_cols, drop = FALSE])
-        rownames(tax_mat) <- assignments$asv_id
-        tax <- phyloseq::tax_table(tax_mat)
-
-        samp <- phyloseq::sample_data(meta[common, , drop = FALSE])
-
-        ps <- phyloseq::phyloseq(otu, tax, samp)
-
-        out_dir <- file.path(rv$project_dir, "05_output")
-        fs::dir_create(out_dir)
-        saveRDS(ps, file.path(out_dir, "phyloseq.rds"))
-
-        list(
-          phyloseq = ps,
-          n_samples = phyloseq::nsamples(ps),
-          n_taxa = phyloseq::ntaxa(ps),
-          unmatched_samples = setdiff(st$sample, common)
-        )
-      }, error = function(e) e)
-
-      if (inherits(result, "error")) {
-        rv$status[[step_id]] <- "ERROR"
-        build_error(conditionMessage(result))
-      } else {
-        build_error(NULL)
-        rv$artifacts[[step_id]] <- result
-        rv$status[[step_id]] <- "SUCCESS"
-        invalidate_analyses(rv)
-      }
+      }), once = TRUE)
     })
 
     output$results_section <- shiny::renderUI({

@@ -140,9 +140,13 @@ build_primer_test_script <- function(cutadapt_cmd, files_df, fwd_primers, rev_pr
     expand_primer_orientations(rev_primers, "Reverse")
   )
   lines <- c("set -e")
+  # -O nchar(seq): count only full-length primer matches. A plain -g also
+  # accepts a 3+ bp partial match of the primer's tail at the read start,
+  # which fires by chance -- and more often after trimming exposes new
+  # read starts, making "after" counts exceed "before" counts.
   count_block <- function(var_prefix, seq, read_path) {
     c(
-      sprintf("%sOUT=$(%s -g %s -e %s -o /dev/null %s 2>&1)", var_prefix, cutadapt_cmd, shQuote(seq), err_rate, shQuote(read_path)),
+      sprintf("%sOUT=$(%s -g %s -e %s -O %d -o /dev/null %s 2>&1)", var_prefix, cutadapt_cmd, shQuote(seq), err_rate, nchar(seq), shQuote(read_path)),
       sprintf("%sTOTAL=$(echo \"$%sOUT\" | grep -m1 'Total reads processed' | awk -F':' '{print $NF}' | awk '{gsub(\",\",\"\"); print $1}')", var_prefix, var_prefix),
       sprintf("%sCNT=$(echo \"$%sOUT\" | grep -m1 'Reads with adapters' | awk -F':' '{print $NF}' | awk '{gsub(\",\",\"\"); print $1}')", var_prefix, var_prefix)
     )
@@ -263,15 +267,15 @@ mod_primer_ui <- function(id) {
           class = "d-flex align-items-center gap-2 mb-2",
           shiny::actionButton(ns("test_primers"), "Test these primers", class = "btn-primary btn-sm"),
           shiny::uiOutput(ns("test_badge"), inline = TRUE),
-          shiny::span(class = "amf-param-hint m-0", "It's always a good idea to check if these primers were used in the library prep.")
+          shiny::span(class = "amf-param-hint m-0", "Checks whether these primers appear in the raw reads, without writing any output.")
         ),
-        shiny::div(class = "amf-param-hint mb-2", "Checks whether these primers appear in the raw reads, without writing any output."),
         dt_output(ns("test_results_table")),
         shiny::uiOutput(ns("test_results_toggle_ui")),
         shiny::uiOutput(ns("test_results_download_ui"))
       ),
       result_card("Remove primers with cutadapt",
         run_row(ns, "Run Cutadapt"),
+        shiny::uiOutput(ns("last_run_caption")),
         shiny::h6("Log", class = "mt-3"),
         mod_logpanel_ui(ns("log"))
       ),
@@ -607,10 +611,14 @@ mod_primer_server <- function(id, rv, sample_table) {
     after_log <- shiny::reactiveVal(character(0))
     after_results <- shiny::reactiveVal(NULL)
     run_primers <- shiny::reactiveVal(NULL)  # primers + err_rate used by the last real Run
+    run_record_saved <- shiny::reactiveVal(0)  # bumped when primer_run.yaml is (re)written
 
     step_status <- shiny::reactive(rv$status[[step_id]])
     shiny::observeEvent(step_status(), {
       shiny::req(identical(step_status(), "SUCCESS"), !is.null(run_primers()))
+      yaml::write_yaml(c(run_primers(), list(run_at = format(Sys.time(), "%Y-%m-%d %H:%M"))),
+                       file.path(trimmed_dir_path(rv$project_dir), "primer_run.yaml"))
+      run_record_saved(run_record_saved() + 1)
       st <- sample_table()
       tdf <- trimmed_files_df(rv$project_dir, st)
       start_primer_check(after_status, after_handle, after_log, after_results,
@@ -618,6 +626,25 @@ mod_primer_server <- function(id, rv, sample_table) {
     }, ignoreInit = TRUE)
 
     shiny::observe(poll_primer_check(after_status, after_handle, after_log, after_results))
+
+    # Which primers produced the trimmed files currently on disk -- recorded
+    # in primer_run.yaml by the observer above, so it survives reopening the
+    # project (when the primer fields just show the auto-detected preset).
+    output$last_run_caption <- shiny::renderUI({
+      shiny::req(identical(step_status(), "SUCCESS"), rv$project_dir)
+      run_record_saved()
+      path <- file.path(trimmed_dir_path(rv$project_dir), "primer_run.yaml")
+      if (!file.exists(path)) {
+        return(shiny::div(class = "alert alert-warning small mt-2 mb-0",
+          "No record of which primers produced the trimmed reads on disk (they predate run tracking). Re-run to be sure."))
+      }
+      run <- yaml::read_yaml(path)
+      shiny::div(class = "alert alert-info small mt-2 mb-0",
+        shiny::strong(sprintf("Trimmed reads on disk were made on %s with:", run$run_at)),
+        shiny::tags$br(), "Forward: ", shiny::tags$code(paste(run$fwd, collapse = ", ")),
+        shiny::tags$br(), "Reverse: ", shiny::tags$code(paste(run$rev, collapse = ", ")),
+        shiny::tags$br(), sprintf("Error rate: %s", run$err_rate))
+    })
 
     output$after_results_section <- shiny::renderUI({
       shiny::req(!identical(after_status(), "IDLE"))
@@ -632,7 +659,7 @@ mod_primer_server <- function(id, rv, sample_table) {
         )
       }
       result_card(shiny::tagList("Primer check after removal ", status_badge(after_status())),
-        shiny::div(class = "amf-param-hint mb-2", "The same test, re-run on the trimmed reads -- counts should now be zero."),
+        shiny::div(class = "amf-param-hint mb-2", "The same test, re-run on the trimmed reads. Counts should now be zero."),
         verdict,
         dt_output(ns("after_results_table")),
         shiny::uiOutput(ns("after_results_toggle_ui"))
@@ -708,6 +735,7 @@ mod_primer_server <- function(id, rv, sample_table) {
       remember_if_custom()
 
       run_primers(list(fwd = fwd_list, rev = rev_list, err_rate = input$err_rate))
+      unlink(file.path(trimmed_dir_path(rv$project_dir), "primer_run.yaml"))
       script <- build_cutadapt_script(cutadapt_invocation(), st, fwd_list, rev_list, input$err_rate)
       launch_step(rv, step_id, "bash", c("-c", script))
     })

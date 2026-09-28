@@ -17,12 +17,50 @@ otu_matrix <- function(ps) {
   mat
 }
 
+# On-screen version of a figure's ggplot: hover shows each mark's `text`
+# aesthetic. The ggplot itself is kept for the 300 dpi PNG download.
+figure_plotly <- function(p) {
+  plotly::ggplotly(p, tooltip = "text") |>
+    plotly::layout(hoverlabel = list(bgcolor = "white", font = list(family = "Inter, sans-serif")),
+                   font = list(family = "Inter, sans-serif")) |>
+    plotly::config(displaylogo = FALSE, modeBarButtonsToRemove = c("lasso2d", "select2d"))
+}
+
 sample_group_values <- function(ps, group_col) {
   if (is.null(group_col) || identical(group_col, NO_GROUP)) {
     return(stats::setNames(rep("All samples", phyloseq::nsamples(ps)), phyloseq::sample_names(ps)))
   }
   meta <- as(phyloseq::sample_data(ps), "data.frame")
   stats::setNames(as.character(meta[[group_col]]), rownames(meta))
+}
+
+rarefaction_df <- function(ps, group_col) {
+  df <- vegan::rarecurve(otu_matrix(ps), step = 100, tidy = TRUE)
+  names(df) <- c("Sample", "Depth", "ASVs")
+  df$Sample <- as.character(df$Sample)
+  df$Group <- unname(sample_group_values(ps, group_col)[df$Sample])
+  df
+}
+
+# No sample labels on the curves -- the interactive version shows them on
+# hover (the `text` aesthetic, used as ggplotly's tooltip).
+rarefaction_plot <- function(df) {
+  grouped <- length(unique(df$Group)) > 1
+  p <- ggplot2::ggplot(df, ggplot2::aes(
+    x = Depth, y = ASVs, group = Sample,
+    text = sprintf("<b>%s</b>%s<br>Depth: %s<br>ASVs: %.0f", Sample,
+                   if (grouped) paste0("<br>", Group) else "", prettyNum(Depth, big.mark = ","), ASVs)
+  ))
+  p <- if (grouped) {
+    p + ggplot2::geom_line(ggplot2::aes(color = Group), linewidth = 0.6, alpha = 0.85)
+  } else {
+    p + ggplot2::geom_line(color = AMF_COLORS$primary, linewidth = 0.6, alpha = 0.7)
+  }
+  p +
+    ggplot2::scale_x_continuous(labels = scales::label_comma()) +
+    ggplot2::labs(x = "Sequencing depth (reads)", y = "ASVs observed", color = NULL) +
+    ggplot2::theme_minimal(base_size = 12) +
+    ggplot2::theme(panel.grid.minor = ggplot2::element_blank())
 }
 
 alpha_diversity_df <- function(ps, group_col) {
@@ -41,7 +79,9 @@ alpha_diversity_plot <- function(df) {
   df$Measure <- factor(df$Measure, levels = c("Observed", "Shannon", "Simpson"))
   ggplot2::ggplot(df, ggplot2::aes(x = Group, y = Value, fill = Group)) +
     ggplot2::geom_boxplot(outlier.shape = NA, alpha = 0.7) +
-    ggplot2::geom_jitter(width = 0.15, alpha = 0.6, size = 1.5) +
+    # `text` is plotly's tooltip aesthetic; ggplot2 warns it doesn't know it.
+    suppressWarnings(ggplot2::geom_jitter(ggplot2::aes(text = sprintf("<b>%s</b><br>%s<br>%s: %.3g", Sample, Group, Measure, Value)),
+                                          width = 0.15, alpha = 0.6, size = 1.5)) +
     ggplot2::facet_wrap(~Measure, scales = "free_y") +
     ggplot2::labs(x = NULL, y = "Diversity index") +
     ggplot2::theme_minimal() +
@@ -62,8 +102,19 @@ beta_ordination_plot <- function(ps, method, group_col) {
   dist <- beta_distance(ps)
   ord <- phyloseq::ordinate(ps, method = method, distance = names(dist))
   color <- if (!is.null(group_col) && !identical(group_col, NO_GROUP)) group_col else NULL
-  p <- phyloseq::plot_ordination(ps, ord, color = color) +
-    ggplot2::geom_point(size = 3, alpha = 0.85) +
+  p <- phyloseq::plot_ordination(ps, ord, color = color)
+  axes <- names(p$data)[1:2]
+  # plot_ordination's axis titles lose the axis name under ggplot2 4.x
+  # (just "[19.8%]"), so rebuild them.
+  axis_titles <- trimws(paste(sub(".", " ", axes, fixed = TRUE), trimws(c(p$labels$x %||% "", p$labels$y %||% ""))))
+  p$data$Sample <- rownames(p$data)
+  p$data$Group <- if (is.null(color)) "" else paste0("<br>", p$data[[color]])
+  p$layers <- list()  # its own geom_point, which has no hover text
+  p <- p +
+    suppressWarnings(ggplot2::geom_point(ggplot2::aes(text = sprintf("<b>%s</b>%s<br>%s: %.3f<br>%s: %.3f",
+                                                                     Sample, Group, axis_titles[1], .data[[axes[1]]], axis_titles[2], .data[[axes[2]]])),
+                                         size = 3, alpha = 0.85)) +
+    ggplot2::labs(x = axis_titles[1], y = axis_titles[2]) +
     ggplot2::theme_minimal() +
     ggplot2::ggtitle(sprintf("%s (%s)", method, dist))
   if (identical(method, "NMDS") && !is.null(ord$stress)) {
@@ -85,10 +136,11 @@ mod_figures_ui <- function(id) {
       shiny::uiOutput(ns("gate_alert")),
       shiny::uiOutput(ns("input_status")),
       result_card("Rarefaction curves",
-        hint("Always computed from raw (untransformed) ASV counts -- rarefaction curves only make sense on actual read counts."),
+        hint("Always computed from raw (untransformed) ASV counts -- rarefaction curves only make sense on actual read counts. Hover a curve to see its sample."),
+        shiny::fluidRow(shiny::column(4, shiny::uiOutput(ns("rarecurve_group_picker")))),
         shiny::div(class = "amf-run-row mb-2", gen_btn("gen_rarecurve", "Generate rarefaction curves"), shiny::uiOutput(ns("rarecurve_badge"), inline = TRUE)),
         shiny::uiOutput(ns("rarecurve_error_alert")),
-        shiny::plotOutput(ns("rarecurve_plot"), height = "380px"),
+        plotly::plotlyOutput(ns("rarecurve_plot"), height = "420px"),
         actions = shiny::uiOutput(ns("rarecurve_download_ui"))
       ),
       result_card("Alpha diversity",
@@ -96,7 +148,7 @@ mod_figures_ui <- function(id) {
         shiny::fluidRow(shiny::column(4, shiny::uiOutput(ns("group_picker")))),
         shiny::div(class = "amf-run-row mb-2", gen_btn("gen_alpha", "Generate alpha diversity plots"), shiny::uiOutput(ns("alpha_badge"), inline = TRUE)),
         shiny::uiOutput(ns("alpha_error_alert")),
-        shiny::plotOutput(ns("alpha_plot"), height = "420px"),
+        plotly::plotlyOutput(ns("alpha_plot"), height = "420px"),
         actions = shiny::uiOutput(ns("alpha_download_ui"))
       ),
       result_card("Beta diversity",
@@ -108,8 +160,8 @@ mod_figures_ui <- function(id) {
         shiny::div(class = "amf-run-row mb-2", gen_btn("gen_beta", "Generate beta diversity plots"), shiny::uiOutput(ns("beta_badge"), inline = TRUE)),
         shiny::uiOutput(ns("beta_error_alert")),
         shiny::fluidRow(
-          shiny::column(6, shiny::plotOutput(ns("nmds_plot"), height = "380px")),
-          shiny::column(6, shiny::plotOutput(ns("pcoa_plot"), height = "380px"))
+          shiny::column(6, plotly::plotlyOutput(ns("nmds_plot"), height = "380px")),
+          shiny::column(6, plotly::plotlyOutput(ns("pcoa_plot"), height = "380px"))
         ),
         actions = shiny::uiOutput(ns("beta_download_ui"))
       )
@@ -169,6 +221,9 @@ mod_figures_server <- function(id, rv, sample_table) {
     output$group_picker <- shiny::renderUI(
       shiny::selectInput(ns("group_col"), "Group by (optional)", choices = group_choices(), width = "100%")
     )
+    output$rarecurve_group_picker <- shiny::renderUI(
+      shiny::selectInput(ns("rarecurve_group_col"), "Color by (optional)", choices = group_choices(), width = "100%")
+    )
     output$beta_group_picker <- shiny::renderUI(
       shiny::selectInput(ns("beta_group_col"), "Color by (optional)", choices = group_choices(), width = "100%")
     )
@@ -192,17 +247,20 @@ mod_figures_server <- function(id, rv, sample_table) {
     # --- Rarefaction curves ---
     rarecurve_status <- shiny::reactiveVal("IDLE")
     rarecurve_error <- shiny::reactiveVal(NULL)
-    # A counter, not a boolean: reactiveVal only invalidates dependents when
-    # the new value differs from the old one, so a plain TRUE flag would stop
-    # refreshing the plot on a second click once it was already TRUE (e.g.
-    # after rebuilding the phyloseq object and re-generating).
-    rarecurve_done <- shiny::reactiveVal(0)
+    rarecurve_result <- shiny::reactiveVal(NULL)  # ggplot; rendered via ggplotly on screen
 
     shiny::observeEvent(input$gen_rarecurve, {
       shiny::req(isTRUE(figures_ready()), isTRUE(inputs_ready()))
       rarecurve_status("RUNNING")
-      ok <- tryCatch({ rarecurve_done(rarecurve_done() + 1); TRUE }, error = function(e) { rarecurve_error(conditionMessage(e)); FALSE })
-      rarecurve_status(if (ok) "SUCCESS" else "ERROR")
+      out <- tryCatch(rarefaction_plot(rarefaction_df(ps_raw(), input$rarecurve_group_col)), error = function(e) e)
+      if (inherits(out, "error")) {
+        rarecurve_status("ERROR")
+        rarecurve_error(conditionMessage(out))
+      } else {
+        rarecurve_error(NULL)
+        rarecurve_result(out)
+        rarecurve_status("SUCCESS")
+      }
     })
 
     output$rarecurve_badge <- shiny::renderUI(status_badge(rarecurve_status()))
@@ -211,24 +269,18 @@ mod_figures_server <- function(id, rv, sample_table) {
       shiny::div(class = "alert alert-danger small mb-3", rarecurve_error())
     })
 
-    output$rarecurve_plot <- shiny::renderPlot({
-      shiny::req(rarecurve_done() > 0)
-      mat <- otu_matrix(ps_raw())
-      vegan::rarecurve(mat, step = 100, label = TRUE, xlab = "Sequencing depth", ylab = "ASVs observed")
+    output$rarecurve_plot <- plotly::renderPlotly({
+      shiny::req(rarecurve_result())
+      figure_plotly(rarecurve_result())
     })
 
     output$rarecurve_download_ui <- shiny::renderUI({
-      shiny::req(rarecurve_done() > 0)
+      shiny::req(rarecurve_result())
       shiny::downloadButton(ns("download_rarecurve"), "Download plot (300 dpi PNG)", class = "btn-outline-secondary btn-sm mb-2")
     })
     output$download_rarecurve <- shiny::downloadHandler(
       filename = function() "rarefaction_curves.png",
-      content = function(file) {
-        grDevices::png(file, width = 8, height = 6, units = "in", res = 300)
-        on.exit(grDevices::dev.off())
-        mat <- otu_matrix(ps_raw())
-        vegan::rarecurve(mat, step = 100, label = TRUE, xlab = "Sequencing depth", ylab = "ASVs observed")
-      }
+      content = function(file) ggplot2::ggsave(file, plot = rarecurve_result(), dpi = 300, width = 8, height = 6, units = "in", bg = "white")
     )
 
     # --- Alpha diversity ---
@@ -258,9 +310,9 @@ mod_figures_server <- function(id, rv, sample_table) {
       shiny::req(identical(alpha_status(), "ERROR"), alpha_error())
       shiny::div(class = "alert alert-danger small mb-3", alpha_error())
     })
-    output$alpha_plot <- shiny::renderPlot({
+    output$alpha_plot <- plotly::renderPlotly({
       shiny::req(alpha_result())
-      alpha_result()$plot
+      figure_plotly(alpha_result()$plot)
     })
     output$alpha_download_ui <- shiny::renderUI({
       shiny::req(alpha_result())
@@ -309,13 +361,13 @@ mod_figures_server <- function(id, rv, sample_table) {
       shiny::req(identical(beta_status(), "ERROR"), beta_error())
       shiny::div(class = "alert alert-danger small mb-3", beta_error())
     })
-    output$nmds_plot <- shiny::renderPlot({
+    output$nmds_plot <- plotly::renderPlotly({
       shiny::req(beta_result())
-      beta_result()$nmds$plot
+      figure_plotly(beta_result()$nmds$plot)
     })
-    output$pcoa_plot <- shiny::renderPlot({
+    output$pcoa_plot <- plotly::renderPlotly({
       shiny::req(beta_result())
-      beta_result()$pcoa$plot
+      figure_plotly(beta_result()$pcoa$plot)
     })
     output$beta_download_ui <- shiny::renderUI({
       shiny::req(beta_result())
@@ -336,7 +388,7 @@ mod_figures_server <- function(id, rv, sample_table) {
 
     # A rebuilt/re-transformed phyloseq object makes every figure stale.
     shiny::observeEvent(rv$phyloseq_rev, {
-      rarecurve_status("IDLE"); rarecurve_done(0)
+      rarecurve_status("IDLE"); rarecurve_result(NULL)
       alpha_status("IDLE"); alpha_result(NULL)
       beta_status("IDLE"); beta_result(NULL)
     }, ignoreInit = TRUE)

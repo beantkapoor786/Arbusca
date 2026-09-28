@@ -33,14 +33,14 @@ mod_denoise_ui <- function(id) {
         shiny::uiOutput(ns("denoise_gate_msg")),
         shiny::fluidRow(
           shiny::column(5,
-            help_label("Pooling mode", "Controls whether samples inform each other's error/abundance model when calling ASVs. Independent: each sample denoised on its own -- fastest, but misses rare ASVs that only have enough reads when samples are considered together. Pseudo-pooling: samples denoised independently first, then a second pass uses those results as priors -- most of pooling's sensitivity to rare/shared ASVs at a fraction of true pooling's cost. Pool all samples: all samples denoised together in one model -- most sensitive to rare ASVs shared across samples, but slowest and most memory-intensive, especially with many samples."),
+            shiny::tags$label("Pooling mode"),
             shiny::selectInput(
               ns("pool"), NULL,
               choices = c("Independent (default, fastest)" = "independent", "Pseudo-pooling" = "pseudo", "Pool all samples" = "pool"),
               width = "100%"
             )
           ),
-          shiny::column(7, shiny::div(class = "amf-param-hint mt-4", "Independent is fastest. Pseudo-pooling recovers rare ASVs shared across samples at modest cost."))
+          shiny::column(7, shiny::div(class = "amf-param-hint mt-4", "Independent is fastest. Pseudo-pooling recovers rare ASVs shared across samples at modest cost. Pool all samples is the most sensitive but slowest and most memory-intensive."))
         ),
         run_row(ns, "Denoise"),
         shiny::h6("Log", class = "mt-3"),
