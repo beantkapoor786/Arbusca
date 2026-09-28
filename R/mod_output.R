@@ -242,9 +242,16 @@ mod_output_server <- function(id, rv, sample_table) {
                              length(res$unmatched_samples), paste(res$unmatched_samples, collapse = ", ")))
         },
         shiny::div(class = "text-muted small mb-1", sprintf("Saved to %s.", file.path(rv$project_dir, "05_output", "phyloseq.rds"))),
+        shiny::downloadButton(ns("download_phyloseq"), "Download phyloseq object (.rds)", class = "btn-outline-secondary btn-sm mb-2"),
         shiny::verbatimTextOutput(ns("phyloseq_summary"))
       )
     })
+
+    # Serves the saved .rds as-is -- load it with readRDS().
+    output$download_phyloseq <- shiny::downloadHandler(
+      filename = function() "phyloseq.rds",
+      content = function(file) file.copy(file.path(rv$project_dir, "05_output", "phyloseq.rds"), file)
+    )
 
     output$phyloseq_summary <- shiny::renderPrint({
       res <- rv$artifacts[[step_id]]
@@ -369,6 +376,7 @@ mod_output_server <- function(id, rv, sample_table) {
           phyloseq::nsamples(res$phyloseq), phyloseq::ntaxa(res$phyloseq)
         )),
         shiny::div(class = "text-muted small mb-1", sprintf("Saved to %s.", file.path(rv$project_dir, "05_output", "phyloseq_transformed.rds"))),
+        shiny::downloadButton(ns("download_transformed_phyloseq"), "Download transformed phyloseq object (.rds)", class = "btn-outline-secondary btn-sm mb-2"),
         shiny::h6("Transformed ASV table"),
         dt_output(ns("transform_table")),
         shiny::downloadButton(ns("download_transform_table"), "Download as CSV", class = "btn-outline-secondary btn-sm mb-2")
@@ -382,6 +390,11 @@ mod_output_server <- function(id, rv, sample_table) {
       DT::formatSignif(DT::datatable(res$table, rownames = FALSE, options = list(scrollX = TRUE, pageLength = 15)),
                        columns = num_cols, digits = 4)
     })
+
+    output$download_transformed_phyloseq <- shiny::downloadHandler(
+      filename = function() sprintf("phyloseq_transformed_%s.rds", transform_result()$method),
+      content = function(file) file.copy(file.path(rv$project_dir, "05_output", "phyloseq_transformed.rds"), file)
+    )
 
     output$download_transform_table <- shiny::downloadHandler(
       filename = function() sprintf("asv_table_%s_%s.csv", transform_result()$method, format(Sys.time(), "%Y%m%d_%H%M%S")),

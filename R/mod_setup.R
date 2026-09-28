@@ -288,7 +288,9 @@ mod_setup_server <- function(id, rv) {
         ),
         shiny::div(
           class = "amf-param-hint mb-2",
-          "Sample name = the filename split on the delimiter, keeping tokens first index .. last index. Forward/reverse files are paired by their R1/R2 tag."
+          "The sample name is built by cutting each filename at the delimiter into numbered pieces, then keeping pieces First index through Last index. ",
+          "E.g. with delimiter _, Sample1_S145_L001_R1_001.fastq.gz splits into Sample1 (1), S145 (2), L001 (3), R1 (4), 001.fastq.gz (5), so indices 1 to 1 give Sample1. ",
+          "Forward and reverse files are paired by their R1/R2 tag."
         ),
         dt_output(ns("file_table"))
       )

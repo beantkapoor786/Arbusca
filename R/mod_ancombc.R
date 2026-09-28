@@ -164,8 +164,11 @@ mod_ancombc_ui <- function(id) {
   step_card(
     stacked = TRUE,
     title = "12. Differential Abundance (ANCOM-BC2)",
-    description = "Identifies taxa whose absolute abundance differs between groups or along covariates, correcting for sample- and taxon-specific biases. Always uses the raw (untransformed) phyloseq object, since ANCOM-BC2 does its own bias correction.",
+    description = "Identifies taxa whose absolute abundance differs between groups or along covariates, correcting for sample- and taxon-specific biases.",
     params = shiny::tagList(
+      shiny::div(class = "alert alert-info small mb-3",
+        shiny::strong("Runs on raw counts, not transformed data. "),
+        "ANCOM-BC2 log-transforms the counts and corrects for sample-specific sequencing bias itself, so any transformation applied in the Phyloseq Object step is ignored here."),
       shiny::uiOutput(ns("gate_alert")),
       shiny::uiOutput(ns("input_status")),
       shiny::fluidRow(
