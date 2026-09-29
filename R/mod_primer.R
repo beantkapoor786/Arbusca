@@ -284,6 +284,58 @@ mod_primer_ui <- function(id) {
   )
 }
 
+# --- cutadapt discovery and self-install ---
+
+# An app launched from RStudio or Finder doesn't inherit the login shell's
+# PATH, so Sys.which() misses Homebrew/conda installs; look here too.
+COMMON_BIN_DIRS <- c(
+  "/opt/homebrew/bin", "/usr/local/bin",
+  file.path(path.expand("~"), c("miniforge3", "mambaforge", "miniconda3", "anaconda3"), "bin"),
+  "/usr/bin"
+)
+
+# The app's own install lives in a private venv, so pip never touches (or is
+# refused by, per PEP 668) the user's own Python.
+cutadapt_venv_dir <- function() file.path(path.expand("~"), ".arbusca", "cutadapt-venv")
+
+find_executables <- function(name) {
+  cands <- c(Sys.which(name), file.path(COMMON_BIN_DIRS, name))
+  unique(cands[nzchar(cands) & file.exists(cands)])
+}
+
+validate_cutadapt <- function(path) {
+  if (is.null(path) || is.na(path) || !nzchar(path)) return(NULL)
+  tryCatch({
+    out <- system2(path, "--version", stdout = TRUE, stderr = TRUE)
+    if (!is.null(attr(out, "status")) && attr(out, "status") != 0) return(NULL)
+    trimws(out[1])
+  }, error = function(e) NULL)
+}
+
+# First working cutadapt among: the saved path, the app's own venv, then PATH
+# and common install dirs. Returns list(path, version) or NULL.
+locate_cutadapt <- function(saved_path = NULL) {
+  cands <- c(saved_path, file.path(cutadapt_venv_dir(), "bin", "cutadapt"), find_executables("cutadapt"))
+  for (p in unique(cands)) {
+    v <- validate_cutadapt(p)
+    if (!is.null(v)) return(list(path = p, version = v))
+  }
+  NULL
+}
+
+# A python3 that can create a venv (Debian/Ubuntu ship python3 without
+# ensurepip unless python3-venv is installed). NULL if none found.
+find_python3 <- function() {
+  for (p in find_executables("python3")) {
+    ok <- tryCatch({
+      out <- system2(p, c("-c", shQuote("import venv, ensurepip")), stdout = TRUE, stderr = TRUE)
+      is.null(attr(out, "status")) || attr(out, "status") == 0
+    }, error = function(e) FALSE)
+    if (ok) return(p)
+  }
+  NULL
+}
+
 # sample_table: reactive() -> data.frame(sample, fwd, rev) of basenames,
 # from mod_setup. rv$project_dir resolves them to full paths.
 mod_primer_server <- function(id, rv, sample_table) {
@@ -383,27 +435,16 @@ mod_primer_server <- function(id, rv, sample_table) {
       })
     })
 
-    # --- cutadapt readiness: ask once, validate or install, remember the choice ---
-
-    validate_cutadapt <- function(path) {
-      tryCatch({
-        out <- system2(path, "--version", stdout = TRUE, stderr = TRUE)
-        if (!is.null(attr(out, "status")) && attr(out, "status") != 0) return(NULL)
-        trimws(out[1])
-      }, error = function(e) NULL)
-    }
+    # --- cutadapt readiness: find it silently, else ask once and validate or install ---
 
     cutadapt_invocation <- shiny::reactiveVal(NULL)  # shell-ready command prefix once resolved
     cutadapt_version <- shiny::reactiveVal(NULL)
 
     shiny::isolate({
-      cfg <- read_app_config()
-      if (!is.null(cfg$cutadapt_path)) {
-        v <- validate_cutadapt(cfg$cutadapt_path)
-        if (!is.null(v)) {
-          cutadapt_invocation(shQuote(cfg$cutadapt_path))
-          cutadapt_version(v)
-        }
+      found <- locate_cutadapt(read_app_config()$cutadapt_path)
+      if (!is.null(found)) {
+        cutadapt_invocation(shQuote(found$path))
+        cutadapt_version(found$version)
       }
     })
 
@@ -428,7 +469,21 @@ mod_primer_server <- function(id, rv, sample_table) {
 
     shiny::observeEvent(input$install_cutadapt, {
       shiny::req(identical(install_status(), "IDLE") || identical(install_status(), "ERROR"))
-      h <- processx::process$new("python3", c("-m", "pip", "install", "--user", "cutadapt"), stdout = "|", stderr = "|")
+      py <- find_python3()
+      if (is.null(py)) {
+        install_log("No usable Python 3 was found, so cutadapt can't be installed automatically. Install Python 3 (https://www.python.org/downloads/) and click Install again, or choose \"Yes\" above and point to an existing cutadapt.")
+        install_status("ERROR")
+        return()
+      }
+      venv <- cutadapt_venv_dir()
+      script <- paste(
+        "set -e",
+        sprintf("echo 'Creating a private Python environment in %s'", venv),
+        sprintf("%s -m venv --clear %s", shQuote(py), shQuote(venv)),
+        sprintf("%s -m pip install --disable-pip-version-check cutadapt", shQuote(file.path(venv, "bin", "python"))),
+        sep = "\n"
+      )
+      h <- processx::process$new("bash", c("-c", script), stdout = "|", stderr = "|")
       install_handle(h)
       install_status("RUNNING")
       install_log(character(0))
@@ -444,15 +499,12 @@ mod_primer_server <- function(id, rv, sample_table) {
       if (length(c(new_out, new_err)) > 0) install_log(c(install_log(), new_out, new_err))
 
       if (!h$is_alive()) {
-        if (identical(h$get_exit_status(), 0L)) {
-          resolved_path <- Sys.which("cutadapt")
-          inv <- if (nzchar(resolved_path)) shQuote(resolved_path) else "python3 -m cutadapt"
-          v <- validate_cutadapt(if (nzchar(resolved_path)) resolved_path else "cutadapt")
-          cutadapt_invocation(inv)
-          cutadapt_version(v %||% "installed")
-          write_app_config(utils::modifyList(read_app_config(), list(
-            cutadapt_path = if (nzchar(resolved_path)) resolved_path else NA
-          )))
+        exe <- file.path(cutadapt_venv_dir(), "bin", "cutadapt")
+        v <- if (identical(h$get_exit_status(), 0L)) validate_cutadapt(exe)
+        if (!is.null(v)) {
+          # No config write needed: locate_cutadapt() checks the venv on every launch.
+          cutadapt_invocation(shQuote(exe))
+          cutadapt_version(v)
           install_status("SUCCESS")
         } else {
           install_status("ERROR")
@@ -488,7 +540,7 @@ mod_primer_server <- function(id, rv, sample_table) {
             )
           } else if (identical(input$has_cutadapt, "no")) {
             shiny::tagList(
-              shiny::div(class = "text-muted small mb-2", "Installs via: python3 -m pip install --user cutadapt"),
+              shiny::div(class = "text-muted small mb-2", sprintf("Installs cutadapt into a private Python environment in %s (about a minute).", cutadapt_venv_dir())),
               shiny::actionButton(ns("install_cutadapt"), "Install cutadapt", class = "btn-primary btn-sm mb-2"),
               shiny::div(class = "mb-2", status_badge(install_status())),
               if (length(install_log()) > 0) {

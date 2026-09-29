@@ -42,6 +42,6 @@ check_binary <- function(name, hint) {
 }
 
 cat("\nExternal binaries:\n")
-check_binary("cutadapt", "install via 'pip install cutadapt' or 'conda install -c bioconda cutadapt'")
+check_binary("cutadapt", "the app can install it for you on the Primer removal step")
 check_binary("makeblastdb", "install via 'conda install -c bioconda blast' or from NCBI BLAST+ downloads")
 check_binary("blastn", "install via 'conda install -c bioconda blast' or from NCBI BLAST+ downloads")

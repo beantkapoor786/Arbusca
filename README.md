@@ -39,10 +39,10 @@ shiny, bslib, bsicons, DT, plotly, ggplot2, processx, callr, fs, yaml, jsonlite,
 
 > `install_deps.R` pins CVXR to 1.0-15, because current ANCOMBC releases don't work with CVXR ≥ 1.9.
 
-**Command-line tools** (must be on your `PATH`):
+**Command-line tools:**
 
-- [cutadapt](https://cutadapt.readthedocs.io/): `pip install cutadapt` or `conda install -c bioconda cutadapt`
-- [BLAST+](https://blast.ncbi.nlm.nih.gov/doc/blast-help/downloadblastdata.html) (`blastn`, `makeblastdb`, `blastdbcmd`): `conda install -c bioconda blast`
+- [cutadapt](https://cutadapt.readthedocs.io/): used automatically if already installed. If not, the Primer removal step can install it for you into a private Python environment (`~/.arbusca/cutadapt-venv`); this only needs Python 3.
+- [BLAST+](https://blast.ncbi.nlm.nih.gov/doc/blast-help/downloadblastdata.html) (`blastn`, `makeblastdb`, `blastdbcmd`), which must be on your `PATH`: `conda install -c bioconda blast`
 
 **Reference database:** a MaarjAM SSU FASTA file or a BLAST database built from it. The app does not download it for you. Point it at an existing BLAST database, or give it the FASTA and it will build one with `makeblastdb`.
 
