@@ -203,7 +203,7 @@ mod_denoise_server <- function(id, rv, sample_table) {
 
     output$denoise_gate_msg <- shiny::renderUI({
       if (is.null(learn_result())) {
-        shiny::div(class = "text-muted small mb-2", "Run 6a first -- denoising needs a learned error model.")
+        shiny::div(class = "text-muted small mb-2", "Please make sure you have run 6a first. Denoising needs a learned error model.")
       } else {
         NULL
       }

@@ -54,8 +54,7 @@ mod_qc_ui <- function(id) {
                 help_label("maxEE (reverse)", "Same as maxEE (forward), but for the reverse read. Set higher here since reverse reads are noisier and a strict value would discard too many pairs."),
                 shiny::numericInput(ns("maxEE_rev"), NULL, value = 4, min = 0, step = 0.5)
               ))
-            ),
-            shiny::div(class = "amf-param-hint", "Relaxed on the reverse read: AMF SSU with degenerate primers is noisier than typical 16S.")
+            )
           )
         ),
         shiny::column(3,
