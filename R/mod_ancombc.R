@@ -1,8 +1,8 @@
-# Step 12 -- ANCOM-BC2 differential abundance (ANCOMBC::ancombc2) on Step
-# 9's raw phyloseq object: ANCOM-BC2 does its own sample/taxon bias
+# Step 13 -- ANCOM-BC2 differential abundance (ANCOMBC::ancombc2) on Step
+# 10's raw phyloseq object: ANCOM-BC2 does its own sample/taxon bias
 # correction, so it is never fed the transformed object.
 #
-# Same design as Step 11 (PERMANOVA): build_ancombc_script() renders the R
+# Same design as Step 12 (PERMANOVA): build_ancombc_script() renders the R
 # script from the current inputs, the preview shows it, and the callr job
 # evaluates exactly that text. Analysis-only; nothing depends on it.
 
@@ -163,7 +163,7 @@ mod_ancombc_ui <- function(id) {
 
   step_card(
     stacked = TRUE,
-    title = "12. Differential Abundance (ANCOM-BC2)",
+    title = "13. Differential Abundance (ANCOM-BC2)",
     description = "Identifies taxa whose absolute abundance differs between groups or along covariates, correcting for sample- and taxon-specific biases.",
     params = shiny::tagList(
       shiny::div(class = "alert alert-info small mb-3",
@@ -271,7 +271,7 @@ mod_ancombc_server <- function(id, rv, sample_table) {
     ns <- session$ns
     step_id <- "ancombc"
 
-    ps_path <- shiny::reactive(file.path(rv$project_dir, "05_output", "phyloseq.rds"))
+    ps_path <- shiny::reactive(file.path(rv$project_dir, "06_output", "phyloseq.rds"))
     inputs_ready <- shiny::reactive({
       shiny::req(rv$project_dir)
       rv$status$output

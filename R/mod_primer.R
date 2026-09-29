@@ -1,4 +1,4 @@
-# Step 3 -- Primer Removal (cutadapt). Presets come from inst/primer_presets.yaml
+# Step 4 -- Primer Removal (cutadapt). Presets come from inst/primer_presets.yaml
 # (each with its literature citation); the dropdown auto-selects the pair
 # that matches the detected read length, per DESIGN.md section 5.
 
@@ -126,69 +126,40 @@ expand_primer_orientations <- function(primers, role) {
   do.call(rbind, rows)
 }
 
-# Builds a bash script that checks every candidate primer, in all 4
-# orientations, against R1 and R2 *independently* (single-end cutadapt,
-# count-only, output discarded), emitting a
-# "RESULT|sample|role|primer|orientation|sequence|r1_count|r1_total|r2_count|r2_total"
-# line per (sample, primer, orientation) -- not assuming a fixed F/R pairing
-# or a fixed orientation is what lets this surface "this primer actually
-# shows up reverse-complemented in R2" when the user isn't sure which primer
-# was used, or how.
-build_primer_test_script <- function(cutadapt_cmd, files_df, fwd_primers, rev_primers, err_rate) {
-  variants <- rbind(
-    expand_primer_orientations(fwd_primers, "Forward"),
-    expand_primer_orientations(rev_primers, "Reverse")
-  )
-  lines <- c("set -e")
-  # -O nchar(seq): count only full-length primer matches. A plain -g also
-  # accepts a 3+ bp partial match of the primer's tail at the read start,
-  # which fires by chance -- and more often after trimming exposes new
-  # read starts, making "after" counts exceed "before" counts.
-  count_block <- function(var_prefix, seq, read_path) {
-    c(
-      sprintf("%sOUT=$(%s -g %s -e %s -O %d -o /dev/null %s 2>&1)", var_prefix, cutadapt_cmd, shQuote(seq), err_rate, nchar(seq), shQuote(read_path)),
-      sprintf("%sTOTAL=$(echo \"$%sOUT\" | grep -m1 'Total reads processed' | awk -F':' '{print $NF}' | awk '{gsub(\",\",\"\"); print $1}')", var_prefix, var_prefix),
-      sprintf("%sCNT=$(echo \"$%sOUT\" | grep -m1 'Reads with adapters' | awk -F':' '{print $NF}' | awk '{gsub(\",\",\"\"); print $1}')", var_prefix, var_prefix)
+# Background job (callr) counting, per sample, the reads in which each
+# primer orientation occurs -- primerHits() from the DADA2 ITS workflow:
+# vcountPattern(fixed = FALSE) honors IUPAC codes and matches anywhere in
+# the read, exactly (no mismatches). R1 and R2 are counted independently,
+# not assuming a fixed F/R pairing or orientation, which is what lets this
+# surface "this primer actually shows up reverse-complemented in R2".
+# Returns one row per (sample, primer, read file) with the four orientation
+# counts as columns. Must be self-contained: it runs in a bare R session.
+primer_check_job <- function(files_df, variants, n_jobs) {
+  primerHits <- function(primer, reads) sum(Biostrings::vcountPattern(primer, reads, fixed = FALSE) > 0)
+  primers <- unique(variants[c("role", "primer")])
+  count_sample <- function(i) {
+    reads <- list(
+      "Forward reads" = ShortRead::sread(ShortRead::readFastq(files_df$fwd[i])),
+      "Reverse reads" = ShortRead::sread(ShortRead::readFastq(files_df$rev[i]))
     )
-  }
-  for (i in seq_len(nrow(files_df))) {
-    s <- files_df$sample[i]
-    in1 <- files_df$fwd[i]
-    in2 <- files_df$rev[i]
-    lines <- c(lines, sprintf("echo '--- %s ---'", s))
-    for (j in seq_len(nrow(variants))) {
-      role <- variants$role[j]
-      primer <- variants$primer[j]
-      orientation <- variants$orientation[j]
-      seq <- variants$sequence[j]
-      lines <- c(
-        lines,
-        count_block("R1", seq, in1),
-        count_block("R2", seq, in2),
-        sprintf("echo \"RESULT|%s|%s|%s|%s|%s|$R1CNT|$R1TOTAL|$R2CNT|$R2TOTAL\"", s, role, primer, orientation, seq)
-      )
+    rows <- list()
+    for (j in seq_len(nrow(primers))) {
+      v <- variants[variants$role == primers$role[j] & variants$primer == primers$primer[j], ]
+      for (rn in names(reads)) {
+        hits <- vapply(v$sequence, primerHits, numeric(1), reads = reads[[rn]])
+        rows[[length(rows) + 1]] <- data.frame(
+          sample = files_df$sample[i], role = primers$role[j], primer = primers$primer[j],
+          reads = rn, total = length(reads[[rn]]), t(stats::setNames(hits, v$orientation)),
+          stringsAsFactors = FALSE
+        )
+      }
     }
+    do.call(rbind, rows)
   }
-  paste(lines, collapse = "\n")
+  do.call(rbind, parallel::mclapply(seq_len(nrow(files_df)), count_sample, mc.cores = n_jobs))
 }
 
-# Parses RESULT lines out of a primer-test job's log into a results data.frame.
-parse_primer_results <- function(log_lines) {
-  result_lines <- grep("^RESULT\\|", log_lines, value = TRUE)
-  empty <- data.frame(sample = character(0), role = character(0), primer = character(0), orientation = character(0),
-                       sequence = character(0), r1_count = numeric(0), r1_total = numeric(0),
-                       r2_count = numeric(0), r2_total = numeric(0))
-  if (length(result_lines) == 0) return(empty)
-  parts <- strsplit(result_lines, "\\|")
-  rows <- lapply(parts, function(p) {
-    data.frame(
-      sample = p[2], role = p[3], primer = p[4], orientation = p[5], sequence = p[6],
-      r1_count = suppressWarnings(as.numeric(p[7])), r1_total = suppressWarnings(as.numeric(p[8])),
-      r2_count = suppressWarnings(as.numeric(p[9])), r2_total = suppressWarnings(as.numeric(p[10]))
-    )
-  })
-  do.call(rbind, rows)
-}
+PRIMER_ORIENTATIONS <- c("Forward", "Complement", "Reverse", "RevComp")
 
 PRIMER_TABLE_PREVIEW_ROWS <- 10
 
@@ -196,21 +167,15 @@ PRIMER_TABLE_PREVIEW_ROWS <- 10
 # a long sample list doesn't turn the page into a scroll marathon; callers
 # pair this with a "Show full table" button (see primer_table_toggle_ui()).
 primer_results_table <- function(df, show_all = FALSE) {
-  empty_cols <- data.frame(`Sample` = character(0), `Role` = character(0), `Primer` = character(0),
-                            `Orientation` = character(0), `Sequence tested` = character(0),
-                            `Found in R1` = character(0), `Found in R2` = character(0), check.names = FALSE)
   if (is.null(df) || nrow(df) == 0) {
+    empty_cols <- data.frame(Sample = character(0), Primer = character(0), Reads = character(0),
+                              `Total reads` = numeric(0), check.names = FALSE)
+    for (o in PRIMER_ORIENTATIONS) empty_cols[[o]] <- numeric(0)
     return(DT::datatable(empty_cols, rownames = FALSE, options = list(dom = "t")))
   }
-  fmt <- function(count, total) {
-    pct <- if (total > 0) round(100 * count / total, 1) else NA
-    sprintf("%d (%s%%)", count, if (is.na(pct)) "NA" else pct)
-  }
   out <- data.frame(
-    Sample = df$sample, Role = df$role, Primer = df$primer,
-    Orientation = df$orientation, `Sequence tested` = df$sequence,
-    `Found in R1` = mapply(fmt, df$r1_count, df$r1_total),
-    `Found in R2` = mapply(fmt, df$r2_count, df$r2_total),
+    Sample = df$sample, Primer = sprintf("%s (%s)", df$primer, df$role), Reads = df$reads,
+    `Total reads` = df$total, df[PRIMER_ORIENTATIONS],
     check.names = FALSE
   )
   if (!show_all && nrow(out) > PRIMER_TABLE_PREVIEW_ROWS) {
@@ -235,8 +200,8 @@ mod_primer_ui <- function(id) {
 
   step_card(
     stacked = TRUE,
-    title = "3. Primer Removal",
-    description = "Trims the PCR primer sequences off the ends of every read with cutadapt, so primer bases are not mistaken for biological variation. Test your primers on the raw reads first if you are unsure which were used.",
+    title = "4. Primer Removal",
+    description = "Trims the PCR primer sequences off the ends of every read with cutadapt, so primer bases are not mistaken for biological variation. Test your primers on the N-filtered reads first if you are unsure which were used.",
     params = shiny::tagList(
       shiny::uiOutput(ns("cutadapt_setup")),
       shiny::uiOutput(ns("read_length_caption")),
@@ -267,7 +232,7 @@ mod_primer_ui <- function(id) {
           class = "d-flex align-items-center gap-2 mb-2",
           shiny::actionButton(ns("test_primers"), "Test these primers", class = "btn-primary btn-sm"),
           shiny::uiOutput(ns("test_badge"), inline = TRUE),
-          shiny::span(class = "amf-param-hint m-0", "Checks whether these primers appear in the raw reads, without writing any output.")
+          shiny::span(class = "amf-param-hint m-0", "Counts reads containing each primer orientation (exact match, IUPAC-aware), without writing any output.")
         ),
         dt_output(ns("test_results_table")),
         shiny::uiOutput(ns("test_results_toggle_ui")),
@@ -567,47 +532,56 @@ mod_primer_server <- function(id, rv, sample_table) {
     # probe, not a pipeline step -- it can run before OR after the real
     # trim, and neither counts toward pipeline progress.
 
-    # err_rate is threaded through so "found in R1/R2" reflects the same
-    # match tolerance the real Run uses -- testing at cutadapt's own default
-    # (-e 0.1) regardless of what error rate was actually used to trim would
-    # make the "after" check report leftover primer that a stricter Run
-    # correctly left untouched.
-    start_primer_check <- function(status_rv, handle_rv, log_rv, results_rv, files_df, fwd_primer, rev_primer, err_rate) {
+    # Samples run in parallel, leaving one core free so the app itself stays
+    # responsive.
+    start_primer_check <- function(status_rv, handle_rv, results_rv, files_df, fwd_primer, rev_primer) {
       if (nrow(files_df) == 0) return(invisible())
-      script <- build_primer_test_script(cutadapt_invocation(), files_df, fwd_primer, rev_primer, err_rate)
-      h <- processx::process$new("bash", c("-c", script), stdout = "|", stderr = "|")
+      cores <- parallel::detectCores()
+      n_jobs <- if (is.na(cores)) 1 else max(1, cores - 1)
+      variants <- rbind(
+        expand_primer_orientations(fwd_primer, "Forward"),
+        expand_primer_orientations(rev_primer, "Reverse")
+      )
+      h <- callr::r_bg(primer_check_job, args = list(files_df = files_df, variants = variants, n_jobs = n_jobs),
+                       stdout = "|", stderr = "|", supervise = TRUE)
       handle_rv(h)
       status_rv("RUNNING")
-      log_rv(character(0))
       results_rv(NULL)
     }
 
-    poll_primer_check <- function(status_rv, handle_rv, log_rv, results_rv) {
+    poll_primer_check <- function(status_rv, handle_rv, results_rv) {
       h <- handle_rv()
       shiny::req(!is.null(h), identical(status_rv(), "RUNNING"))
       shiny::invalidateLater(750, session)
-
-      new_out <- tryCatch(h$read_output_lines(), error = function(e) character(0))
-      new_err <- tryCatch(h$read_error_lines(), error = function(e) character(0))
-      if (length(c(new_out, new_err)) > 0) log_rv(c(log_rv(), new_out, new_err))
-
       if (!h$is_alive()) {
-        ok <- identical(h$get_exit_status(), 0L)
-        status_rv(if (ok) "SUCCESS" else "ERROR")
-        if (ok) results_rv(parse_primer_results(log_rv()))
+        result <- tryCatch(h$get_result(), error = function(e) e)
+        if (inherits(result, "error")) {
+          shiny::showNotification(paste("Primer check failed:", conditionMessage(result)), type = "error")
+          status_rv("ERROR")
+        } else {
+          results_rv(result)
+          status_rv("SUCCESS")
+        }
       }
     }
 
-    # "Before" test, against raw input -- triggered by the Test button.
+    # "Before" test, against the N-filtered reads -- triggered by the Test button.
     before_status <- shiny::reactiveVal("IDLE")
     before_handle <- shiny::reactiveVal(NULL)
-    before_log <- shiny::reactiveVal(character(0))
     before_results <- shiny::reactiveVal(NULL)
 
-    # Why Test/Run can't start, or NULL if they can.
-    blocked_reason <- function(fwd_list, rev_list) {
-      if (is.null(cutadapt_invocation())) return("Set up cutadapt first (top of this page).")
+    # Step 3's output, re-read once it finishes.
+    filtn_files <- shiny::reactive({
+      shiny::req(rv$project_dir)
+      rv$status$filtn
+      filtn_files_df(rv$project_dir, sample_table())
+    })
+
+    # Why Test (or, with need_cutadapt, Run) can't start, or NULL if they can.
+    blocked_reason <- function(fwd_list, rev_list, need_cutadapt = FALSE) {
+      if (need_cutadapt && is.null(cutadapt_invocation())) return("Set up cutadapt first (top of this page).")
       if (nrow(sample_table()) == 0) return("No paired samples detected -- finish Setup first.")
+      if (nrow(filtn_files()) < nrow(sample_table())) return("No N-filtered reads yet -- finish Remove Ambiguous Bases first.")
       invalid_primer_msg(fwd_list, rev_list)
     }
 
@@ -622,17 +596,15 @@ mod_primer_server <- function(id, rv, sample_table) {
 
     shiny::observeEvent(input$test_primers, {
       shiny::req(!any_running(rv))
-      st <- sample_table()
       fwd_list <- parse_primer_list(input$fwd_primer)
       rev_list <- parse_primer_list(input$rev_primer)
       msg <- blocked_reason(fwd_list, rev_list)
       if (!is.null(msg)) return(shiny::showNotification(msg, type = "error"))
       remember_if_custom()
-      start_primer_check(before_status, before_handle, before_log, before_results,
-                          raw_files_df(rv$project_dir, st), fwd_list, rev_list, input$err_rate)
+      start_primer_check(before_status, before_handle, before_results, filtn_files(), fwd_list, rev_list)
     })
 
-    shiny::observe(poll_primer_check(before_status, before_handle, before_log, before_results))
+    shiny::observe(poll_primer_check(before_status, before_handle, before_results))
 
     show_all_before <- shiny::reactiveVal(FALSE)
     shiny::observeEvent(input$toggle_test_table, show_all_before(!show_all_before()))
@@ -660,7 +632,6 @@ mod_primer_server <- function(id, rv, sample_table) {
     # the real Run finishes successfully, using the same primers it used.
     after_status <- shiny::reactiveVal("IDLE")
     after_handle <- shiny::reactiveVal(NULL)
-    after_log <- shiny::reactiveVal(character(0))
     after_results <- shiny::reactiveVal(NULL)
     run_primers <- shiny::reactiveVal(NULL)  # primers + err_rate used by the last real Run
     run_record_saved <- shiny::reactiveVal(0)  # bumped when primer_run.yaml is (re)written
@@ -673,11 +644,10 @@ mod_primer_server <- function(id, rv, sample_table) {
       run_record_saved(run_record_saved() + 1)
       st <- sample_table()
       tdf <- trimmed_files_df(rv$project_dir, st)
-      start_primer_check(after_status, after_handle, after_log, after_results,
-                          tdf, run_primers()$fwd, run_primers()$rev, run_primers()$err_rate)
+      start_primer_check(after_status, after_handle, after_results, tdf, run_primers()$fwd, run_primers()$rev)
     }, ignoreInit = TRUE)
 
-    shiny::observe(poll_primer_check(after_status, after_handle, after_log, after_results))
+    shiny::observe(poll_primer_check(after_status, after_handle, after_results))
 
     # Which primers produced the trimmed files currently on disk -- recorded
     # in primer_run.yaml by the observer above, so it survives reopening the
@@ -703,7 +673,7 @@ mod_primer_server <- function(id, rv, sample_table) {
       df <- after_results()
       verdict <- NULL
       if (identical(after_status(), "SUCCESS") && !is.null(df) && nrow(df) > 0) {
-        clean <- all(df$r1_count == 0 & df$r2_count == 0)
+        clean <- all(df[PRIMER_ORIENTATIONS] == 0)
         verdict <- shiny::div(
           class = paste("alert small mb-2", if (clean) "alert-success" else "alert-warning"),
           if (clean) "Primers fully removed -- count is zero in every sample."
@@ -741,7 +711,7 @@ mod_primer_server <- function(id, rv, sample_table) {
     # natively and tries each in order, using whichever matches, so this is
     # a straight extension of the single-primer case rather than needing
     # separate cutadapt invocations per variant.
-    build_cutadapt_script <- function(cutadapt_cmd, st, fwd_primers, rev_primers, err_rate) {
+    build_cutadapt_script <- function(cutadapt_cmd, files_df, fwd_primers, rev_primers, err_rate) {
       trimmed_dir <- trimmed_dir_path(rv$project_dir)
       lines <- c("set -e", sprintf("mkdir -p %s", shQuote(trimmed_dir)))
 
@@ -756,10 +726,10 @@ mod_primer_server <- function(id, rv, sample_table) {
         sprintf("-A %s", vapply(fwd_rc, shQuote, character(1)))
       ), collapse = " ")
 
-      for (i in seq_len(nrow(st))) {
-        s <- st$sample[i]
-        in1 <- file.path(rv$project_dir, st$fwd[i])
-        in2 <- file.path(rv$project_dir, st$rev[i])
+      for (i in seq_len(nrow(files_df))) {
+        s <- files_df$sample[i]
+        in1 <- files_df$fwd[i]
+        in2 <- files_df$rev[i]
         out_paths <- trimmed_fastq_paths(rv$project_dir, s)
         out1 <- out_paths$fwd
         out2 <- out_paths$rev
@@ -779,16 +749,15 @@ mod_primer_server <- function(id, rv, sample_table) {
 
     shiny::observeEvent(input$run, {
       shiny::req(!any_running(rv))
-      st <- sample_table()
       fwd_list <- parse_primer_list(input$fwd_primer)
       rev_list <- parse_primer_list(input$rev_primer)
-      msg <- blocked_reason(fwd_list, rev_list)
+      msg <- blocked_reason(fwd_list, rev_list, need_cutadapt = TRUE)
       if (!is.null(msg)) return(shiny::showNotification(msg, type = "error"))
       remember_if_custom()
 
       run_primers(list(fwd = fwd_list, rev = rev_list, err_rate = input$err_rate))
       unlink(file.path(trimmed_dir_path(rv$project_dir), "primer_run.yaml"))
-      script <- build_cutadapt_script(cutadapt_invocation(), st, fwd_list, rev_list, input$err_rate)
+      script <- build_cutadapt_script(cutadapt_invocation(), filtn_files(), fwd_list, rev_list, input$err_rate)
       launch_step(rv, step_id, "bash", c("-c", script))
     })
 

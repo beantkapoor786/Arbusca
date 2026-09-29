@@ -1,7 +1,7 @@
-# Step 7 -- Remove Chimeras (DADA2 removeBimeraDenovo), per DESIGN.md
-# section 5. Reads Step 6's seqtab.rds; writes seqtab_nochim.rds and the
+# Step 8 -- Remove Chimeras (DADA2 removeBimeraDenovo), per DESIGN.md
+# section 5. Reads Step 7's seqtab.rds; writes seqtab_nochim.rds and the
 # full read-tracking table (denoised -> merged -> non-chimeric), pulling the
-# denoised counts back from Step 5's dadaF.rds/dadaR.rds. The final ASV
+# denoised counts back from Step 6's dadaF.rds/dadaR.rds. The final ASV
 # length histogram here is the last look before Taxonomy -- a tight band
 # confirms merge/chimera-removal didn't distort the target region.
 
@@ -9,7 +9,7 @@ mod_chimera_ui <- function(id) {
   ns <- shiny::NS(id)
   step_card(
     stacked = TRUE,
-    title = "7. Remove Chimeras",
+    title = "8. Remove Chimeras",
     description = "Removes chimeric sequences, artefacts formed when two different templates join during PCR, using DADA2's de novo method. What remains is your final set of ASVs.",
     params = shiny::tagList(
       shiny::uiOutput(ns("input_status")),
@@ -24,7 +24,7 @@ mod_chimera_ui <- function(id) {
             )
           )
         ),
-        shiny::column(6, step_io("Merged sequence table from step 6.", "DADA2 removeBimeraDenovo (de novo, no reference database).", "seqtab_nochim.rds, track.rds"))
+        shiny::column(6, step_io("Merged sequence table from step 7.", "DADA2 removeBimeraDenovo (de novo, no reference database).", "seqtab_nochim.rds, track.rds"))
       )
     ),
     results = shiny::tagList(

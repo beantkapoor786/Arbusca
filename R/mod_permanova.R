@@ -1,4 +1,4 @@
-# Step 11 -- PERMANOVA (vegan::adonis2) on Step 9's phyloseq object, plus a
+# Step 12 -- PERMANOVA (vegan::adonis2) on Step 10's phyloseq object, plus a
 # betadisper homogeneity-of-dispersion test for every categorical formula
 # term and Bonferroni-corrected pairwise PERMANOVA for categorical terms with
 # more than two groups.
@@ -117,7 +117,7 @@ mod_permanova_ui <- function(id) {
   ns <- shiny::NS(id)
   step_card(
     stacked = TRUE,
-    title = "11. PERMANOVA",
+    title = "12. PERMANOVA",
     description = "Tests whether community composition differs between groups of samples using PERMANOVA (vegan's adonis2), checks the equal-dispersion assumption with betadisper, and runs Bonferroni-corrected pairwise comparisons when a variable has more than two groups.",
     params = shiny::tagList(
       shiny::uiOutput(ns("gate_alert")),
@@ -172,8 +172,8 @@ mod_permanova_server <- function(id, rv, sample_table) {
     ns <- session$ns
     step_id <- "permanova"
 
-    raw_path <- shiny::reactive(file.path(rv$project_dir, "05_output", "phyloseq.rds"))
-    transformed_path <- shiny::reactive(file.path(rv$project_dir, "05_output", "phyloseq_transformed.rds"))
+    raw_path <- shiny::reactive(file.path(rv$project_dir, "06_output", "phyloseq.rds"))
+    transformed_path <- shiny::reactive(file.path(rv$project_dir, "06_output", "phyloseq_transformed.rds"))
 
     inputs_ready <- shiny::reactive({
       shiny::req(rv$project_dir)

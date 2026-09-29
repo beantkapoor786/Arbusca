@@ -1,4 +1,4 @@
-# Step 10 -- Figures. Basic microbial ecology plots built on top of Step 9's
+# Step 11 -- Figures. Basic microbial ecology plots built on top of Step 10's
 # phyloseq object(s): rarefaction curves + alpha diversity always use the raw
 # (untransformed) object (diversity indices assume integer counts); beta
 # diversity ordinations let the user pick raw vs. transformed (Bray-Curtis
@@ -131,7 +131,7 @@ mod_figures_ui <- function(id) {
   # One self-contained card per figure: what it is, its controls, Generate,
   # then the plot; downloads sit in the card header once a plot exists.
   step_card(
-    title = "10. Figures",
+    title = "11. Figures",
     description = "Generates rarefaction curves and alpha- and beta-diversity plots from the phyloseq object. Each figure is created on demand and can be downloaded as a 300 dpi PNG.",
     results = shiny::tagList(
       shiny::uiOutput(ns("gate_alert")),
@@ -176,8 +176,8 @@ mod_figures_server <- function(id, rv, sample_table) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
-    raw_path <- shiny::reactive(file.path(rv$project_dir, "05_output", "phyloseq.rds"))
-    transformed_path <- shiny::reactive(file.path(rv$project_dir, "05_output", "phyloseq_transformed.rds"))
+    raw_path <- shiny::reactive(file.path(rv$project_dir, "06_output", "phyloseq.rds"))
+    transformed_path <- shiny::reactive(file.path(rv$project_dir, "06_output", "phyloseq_transformed.rds"))
 
     inputs_ready <- shiny::reactive({
       shiny::req(rv$project_dir)

@@ -10,16 +10,17 @@ Each step runs in the background with a live log, and results are saved to the p
 |---|------|--------------|
 | 1 | Setup & raw reads | Pick the folder of R1/R2 FASTQ files; samples are detected from filenames |
 | 2 | Quality check | Quality profiles of the raw reads (nothing written to disk) |
-| 3 | Primer removal | `cutadapt`, with AMF primer presets (see below) or custom primers |
-| 4 | Filter and trim | `dada2::filterAndTrim` with truncation lengths chosen from quality profiles |
-| 5 | Learn error rate & denoise | `dada2::learnErrors` + `dada2::dada` to infer ASVs |
-| 6 | Merge pairs | Overlap merge, forward-only, or concatenate (for amplicons too long to overlap) |
-| 7 | Remove chimeras | `dada2::removeBimeraDenovo` (consensus, pooled or per-sample) |
-| 8 | Taxonomy | `blastn` against a MaarjAM database (defaults: ≥97% identity, ≥95% coverage, e-value < 1e-50) |
-| 9 | Phyloseq object | Combines ASVs, taxonomy and sample metadata; optional rarefaction, relative abundance or CLR transform |
-| 10 | Figures | Rarefaction curves, alpha diversity, beta diversity ordinations |
-| 11 | PERMANOVA | `vegan::adonis2`, plus `betadisper` and pairwise tests |
-| 12 | Differential abundance | `ANCOMBC::ancombc2` at family, genus, virtual taxon or ASV level |
+| 3 | Remove ambiguous bases | `dada2::filterAndTrim(maxN = 0)` drops read pairs containing an N; shows raw vs. filtered read counts |
+| 4 | Primer removal | `cutadapt`, with AMF primer presets (see below) or custom primers; primer counts before and after trimming (`Biostrings::vcountPattern`, all four orientations) |
+| 5 | Filter and trim | `dada2::filterAndTrim` with truncation lengths chosen from quality profiles |
+| 6 | Learn error rate & denoise | `dada2::learnErrors` + `dada2::dada` to infer ASVs |
+| 7 | Merge pairs | Overlap merge, forward-only, or concatenate (for amplicons too long to overlap) |
+| 8 | Remove chimeras | `dada2::removeBimeraDenovo` (consensus, pooled or per-sample) |
+| 9 | Taxonomy | `blastn` against a MaarjAM database (defaults: ≥97% identity, ≥95% coverage, e-value < 1e-50) |
+| 10 | Phyloseq object | Combines ASVs, taxonomy and sample metadata; optional rarefaction, relative abundance or CLR transform |
+| 11 | Figures | Rarefaction curves, alpha diversity, beta diversity ordinations |
+| 12 | PERMANOVA | `vegan::adonis2`, plus `betadisper` and pairwise tests |
+| 13 | Differential abundance | `ANCOMBC::ancombc2` at family, genus, virtual taxon or ASV level |
 
 ### Primer presets
 
@@ -69,7 +70,7 @@ Or open `amfdada.Rproj` in RStudio, open `Arbusca.R`, and click **Run App**.
 ## Input data
 
 - **Reads:** one folder containing paired-end FASTQ files (R1/R2). In Setup, you choose the delimiter and which filename parts make up the sample name.
-- **Sample metadata** (needed from step 9): a CSV with one row per sample. One column must contain the same sample names used in Setup; you choose which column in the app. See [`metadata.csv`](metadata.csv) for an example:
+- **Sample metadata** (needed from step 10): a CSV with one row per sample. One column must contain the same sample names used in Setup; you choose which column in the app. See [`metadata.csv`](metadata.csv) for an example:
 
   ```csv
   sample_id,site,treatment
@@ -83,11 +84,12 @@ Everything is written into subfolders of the project (reads) folder:
 
 ```
 <project>/
-├── 01_trimmed/    primer-trimmed reads
-├── 02_filtered/   filtered and trimmed reads
-├── 03_denoise/    error models, denoised reads, sequence tables, read tracking
-├── 04_taxonomy/   BLAST results and taxonomy assignments
-└── 05_output/     phyloseq.rds and phyloseq_transformed.rds
+├── 01_filtN/      reads with no ambiguous bases (N)
+├── 02_trimmed/    primer-trimmed reads
+├── 03_filtered/   filtered and trimmed reads
+├── 04_denoise/    error models, denoised reads, sequence tables, read tracking
+├── 05_taxonomy/   BLAST results and taxonomy assignments
+└── 06_output/     phyloseq.rds and phyloseq_transformed.rds
 ```
 
 App settings that persist across sessions, such as a custom `cutadapt` path, the BLAST database location and saved custom primers, are kept in `~/.arbusca/config.yaml`.

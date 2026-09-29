@@ -1,8 +1,8 @@
-# Step 9 -- Phyloseq Object. Combines Step 8's ASV table (seqtab_nochim.rds)
+# Step 10 -- Phyloseq Object. Combines Step 9's ASV table (seqtab_nochim.rds)
 # and taxonomy assignments (vt_assignments.rds) with user-supplied sample
-# metadata into a single phyloseq object, saved to 05_output/phyloseq.rds.
+# metadata into a single phyloseq object, saved to 06_output/phyloseq.rds.
 # Also offers a data transformation on top of that object (rarefaction,
-# relative abundance, CLR, or none), saved to 05_output/phyloseq_transformed.rds.
+# relative abundance, CLR, or none), saved to 06_output/phyloseq_transformed.rds.
 
 # method: "none" (raw counts), "relabund" (proportions), "clr" (centered
 # log-ratio, with a pseudocount since raw ASV counts always contain zeros),
@@ -48,7 +48,7 @@ mod_output_ui <- function(id) {
   ns <- shiny::NS(id)
   step_card(
     stacked = TRUE,
-    title = "9. Phyloseq Object",
+    title = "10. Phyloseq Object",
     description = "Combines the ASV table, taxonomy and your sample metadata into a single phyloseq object, the standard R format for downstream community analysis.",
     params = shiny::tagList(
       shiny::uiOutput(ns("phyloseq_gate_alert")),
@@ -185,7 +185,7 @@ mod_output_server <- function(id, rv, sample_table) {
           assignments <- readRDS(assignments_path())
 
           # assignments$asv_id (ASV1, ASV2, ...) was assigned in colnames(seqtab_nochim)
-          # order by write_asv_fasta() back in Step 8, so this rename is positional,
+          # order by write_asv_fasta() back in Step 9, so this rename is positional,
           # not a text match -- it just gives both tables the same taxon names.
           colnames(seqtab_nochim) <- assignments$asv_id
 
@@ -207,7 +207,7 @@ mod_output_server <- function(id, rv, sample_table) {
 
           ps <- phyloseq::phyloseq(otu, tax, samp)
 
-          out_dir <- file.path(rv$project_dir, "05_output")
+          out_dir <- file.path(rv$project_dir, "06_output")
           fs::dir_create(out_dir)
           saveRDS(ps, file.path(out_dir, "phyloseq.rds"))
 
@@ -241,7 +241,7 @@ mod_output_server <- function(id, rv, sample_table) {
                      sprintf("%d pipeline sample(s) excluded (no metadata row): %s.",
                              length(res$unmatched_samples), paste(res$unmatched_samples, collapse = ", ")))
         },
-        shiny::div(class = "text-muted small mb-1", sprintf("Saved to %s.", file.path(rv$project_dir, "05_output", "phyloseq.rds"))),
+        shiny::div(class = "text-muted small mb-1", sprintf("Saved to %s.", file.path(rv$project_dir, "06_output", "phyloseq.rds"))),
         shiny::downloadButton(ns("download_phyloseq"), "Download phyloseq object (.rds)", class = "btn-outline-secondary btn-sm mb-2"),
         shiny::verbatimTextOutput(ns("phyloseq_summary"))
       )
@@ -250,7 +250,7 @@ mod_output_server <- function(id, rv, sample_table) {
     # Serves the saved .rds as-is -- load it with readRDS().
     output$download_phyloseq <- shiny::downloadHandler(
       filename = function() "phyloseq.rds",
-      content = function(file) file.copy(file.path(rv$project_dir, "05_output", "phyloseq.rds"), file)
+      content = function(file) file.copy(file.path(rv$project_dir, "06_output", "phyloseq.rds"), file)
     )
 
     output$phyloseq_summary <- shiny::renderPrint({
@@ -344,7 +344,7 @@ mod_output_server <- function(id, rv, sample_table) {
         # phyloseq_transformed.rds without having to re-derive or guess it.
         attr(ps2, "amf_transform_method") <- input$transform_method
 
-        out_dir <- file.path(rv$project_dir, "05_output")
+        out_dir <- file.path(rv$project_dir, "06_output")
         fs::dir_create(out_dir)
         saveRDS(ps2, file.path(out_dir, "phyloseq_transformed.rds"))
 
@@ -375,7 +375,7 @@ mod_output_server <- function(id, rv, sample_table) {
           "%s applied: %d samples x %d taxa.", TRANSFORM_METHOD_LABELS[[res$method]],
           phyloseq::nsamples(res$phyloseq), phyloseq::ntaxa(res$phyloseq)
         )),
-        shiny::div(class = "text-muted small mb-1", sprintf("Saved to %s.", file.path(rv$project_dir, "05_output", "phyloseq_transformed.rds"))),
+        shiny::div(class = "text-muted small mb-1", sprintf("Saved to %s.", file.path(rv$project_dir, "06_output", "phyloseq_transformed.rds"))),
         shiny::downloadButton(ns("download_transformed_phyloseq"), "Download transformed phyloseq object (.rds)", class = "btn-outline-secondary btn-sm mb-2"),
         shiny::h6("Transformed ASV table"),
         dt_output(ns("transform_table")),
@@ -393,7 +393,7 @@ mod_output_server <- function(id, rv, sample_table) {
 
     output$download_transformed_phyloseq <- shiny::downloadHandler(
       filename = function() sprintf("phyloseq_transformed_%s.rds", transform_result()$method),
-      content = function(file) file.copy(file.path(rv$project_dir, "05_output", "phyloseq_transformed.rds"), file)
+      content = function(file) file.copy(file.path(rv$project_dir, "06_output", "phyloseq_transformed.rds"), file)
     )
 
     output$download_transform_table <- shiny::downloadHandler(

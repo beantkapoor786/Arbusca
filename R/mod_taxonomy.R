@@ -1,4 +1,4 @@
-# Step 8 -- Taxonomy Assignment (BLAST + MaarjAM), per DESIGN.md section 5.
+# Step 9 -- Taxonomy Assignment (BLAST + MaarjAM), per DESIGN.md section 5.
 # Defaults match the user's stated methodology: blastn vs a local MaarjAM
 # BLAST+ database, ASVs with >=97% identity, >=95% query coverage, and
 # e-value < 1e-50 are called AM fungal ASVs; everything else is unclassified.
@@ -104,7 +104,7 @@ mod_taxonomy_ui <- function(id) {
   ns <- shiny::NS(id)
   step_card(
     stacked = TRUE,
-    title = "8. Taxonomy Assignment using BLAST",
+    title = "9. Taxonomy Assignment using BLAST",
     description = "Compares each ASV against the MaarjAM reference database with BLAST+ and assigns a virtual taxon (VT) when the match passes your identity, coverage and e-value thresholds.",
     params = shiny::tagList(
       shiny::uiOutput(ns("blast_gate_alert")),

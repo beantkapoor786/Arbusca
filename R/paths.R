@@ -11,7 +11,24 @@ raw_files_df <- function(project_dir, st) {
   data.frame(sample = st$sample[keep], fwd = fwd[keep], rev = rev[keep], stringsAsFactors = FALSE)
 }
 
-trimmed_dir_path <- function(project_dir) file.path(project_dir, "01_trimmed")
+filtn_dir_path <- function(project_dir) file.path(project_dir, "01_filtN")
+
+filtn_fastq_paths <- function(project_dir, sample) {
+  dir <- filtn_dir_path(project_dir)
+  list(
+    fwd = file.path(dir, paste0(sample, "_R1.filtN.fastq.gz")),
+    rev = file.path(dir, paste0(sample, "_R2.filtN.fastq.gz"))
+  )
+}
+
+# Sample table restricted to samples whose N-filtered pair exists on disk.
+filtn_files_df <- function(project_dir, st) {
+  paths <- filtn_fastq_paths(project_dir, st$sample)
+  keep <- fs::file_exists(paths$fwd) & fs::file_exists(paths$rev)
+  data.frame(sample = st$sample[keep], fwd = paths$fwd[keep], rev = paths$rev[keep], stringsAsFactors = FALSE)
+}
+
+trimmed_dir_path <- function(project_dir) file.path(project_dir, "02_trimmed")
 
 trimmed_fastq_paths <- function(project_dir, sample) {
   dir <- trimmed_dir_path(project_dir)
@@ -29,7 +46,7 @@ trimmed_files_df <- function(project_dir, st) {
   data.frame(sample = st$sample[keep], fwd = paths$fwd[keep], rev = paths$rev[keep], stringsAsFactors = FALSE)
 }
 
-filtered_dir_path <- function(project_dir) file.path(project_dir, "02_filtered")
+filtered_dir_path <- function(project_dir) file.path(project_dir, "03_filtered")
 
 filtered_fastq_paths <- function(project_dir, sample) {
   dir <- filtered_dir_path(project_dir)
@@ -45,9 +62,9 @@ filtered_files_df <- function(project_dir, st) {
   data.frame(sample = st$sample[keep], fwd = paths$fwd[keep], rev = paths$rev[keep], stringsAsFactors = FALSE)
 }
 
-denoise_dir_path <- function(project_dir) file.path(project_dir, "03_denoise")
+denoise_dir_path <- function(project_dir) file.path(project_dir, "04_denoise")
 
-taxonomy_dir_path <- function(project_dir) file.path(project_dir, "04_taxonomy")
+taxonomy_dir_path <- function(project_dir) file.path(project_dir, "05_taxonomy")
 
 # Counts FASTQ records in a (optionally gzipped) file, for reconstructing a
 # read-tracking table when resuming a step whose original in-memory result

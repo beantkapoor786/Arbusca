@@ -1,4 +1,4 @@
-# Step 4 -- Quality Control (dada2::filterAndTrim). Per DESIGN.md section 5:
+# Step 5 -- Quality Control (dada2::filterAndTrim). Per DESIGN.md section 5:
 # quality-profile plots before committing truncLen, sliders for
 # truncLen/maxEE, maxN=0 and rm.phix=TRUE fixed (DADA2 requirements, not
 # user-editable), maxEE relaxed vs typical 16S defaults since AMF SSU
@@ -8,7 +8,7 @@ mod_qc_ui <- function(id) {
   ns <- shiny::NS(id)
   step_card(
     stacked = TRUE,
-    title = "4. Filter and Trim",
+    title = "5. Filter and Trim",
     description = "Removes low-quality reads and trims read ends using DADA2 filterAndTrim, so only reliable sequence is passed on to denoising. Choose truncation lengths from the quality profiles, then run.",
     results = shiny::tagList(
       shiny::uiOutput(ns("input_status")),
@@ -82,7 +82,7 @@ mod_qc_ui <- function(id) {
 }
 
 # sample_table: reactive() -> data.frame(sample, fwd, rev) of basenames from
-# mod_setup (same one mod_primer uses -- QC reads Step 3's trimmed output).
+# mod_setup (same one mod_primer uses -- QC reads Step 4's trimmed output).
 mod_qc_server <- function(id, rv, sample_table) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
@@ -103,7 +103,7 @@ mod_qc_server <- function(id, rv, sample_table) {
       if (nrow(files) == 0) {
         return(shiny::div(class = "alert alert-warning small", "No trimmed reads found yet -- finish Primer Removal first."))
       }
-      shiny::div(class = "text-muted small mb-2", sprintf("%d trimmed sample(s) ready from 01_trimmed/.", nrow(files)))
+      shiny::div(class = "text-muted small mb-2", sprintf("%d trimmed sample(s) ready from 02_trimmed/.", nrow(files)))
     })
 
     # Which samples to plot -- defaults to the first 2 (as before) until the
@@ -157,7 +157,7 @@ mod_qc_server <- function(id, rv, sample_table) {
       )
     })
 
-    # Rendered as a background callr job (like Step 5's "Learn error rate")
+    # Rendered as a background callr job (like Step 6's "Learn error rate")
     # so the RUNNING badge actually shows while plotQualityProfile() is still
     # computing, instead of freezing the UI with no feedback until it's done.
     preview_status <- shiny::reactiveVal("IDLE")

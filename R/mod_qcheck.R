@@ -1,6 +1,6 @@
 # Step 2 -- Quality Check. Pure visualization of the raw (untrimmed) reads'
 # quality profiles, so the user can eyeball run quality before anything is
-# processed -- distinct from Step 4's "Quality Control" (mod_qc.R), which
+# processed -- distinct from Step 5's "Quality Control" (mod_qc.R), which
 # filters/trims and happens to preview the *trimmed* reads. Not a pipeline
 # stage with artifacts, so it carries no rv$status entry and is always
 # treated as complete (see app.R's setup/qcheck special-casing).
@@ -62,7 +62,7 @@ mod_qcheck_server <- function(id, rv, sample_table) {
       shiny::div(class = "text-muted small mb-2", sprintf("%d raw sample pair(s) available.", nrow(files)))
     })
 
-    # Rendered as a background callr job (like Step 5's "Learn error rate")
+    # Rendered as a background callr job (like Step 6's "Learn error rate")
     # so the RUNNING badge actually shows while plotQualityProfile() -- which
     # can take a while over many raw reads -- is still computing, instead of
     # freezing the UI with no feedback until it's done.

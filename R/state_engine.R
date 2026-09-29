@@ -1,7 +1,7 @@
 # Pipeline step order + FSM gating helpers.
 # rv$status[[step_id]] is one of IDLE, QUEUED, RUNNING, SUCCESS, ERROR.
 
-STEP_ORDER <- c("primer", "qc", "denoise", "merge", "chimera", "taxonomy", "output")
+STEP_ORDER <- c("filtn", "primer", "qc", "denoise", "merge", "chimera", "taxonomy", "output")
 
 # TRUE if step_id's upstream dependency (if any) is SUCCESS, so its Run
 # button should be enabled. The first step has no upstream.
@@ -13,18 +13,19 @@ upstream_ok <- function(rv, step_id) {
 
 # On-disk output(s) owned by a single step -- used by reset_downstream() to
 # delete exactly the stale files a re-run invalidates. denoise/merge/chimera
-# all write into the shared 03_denoise/ dir, so each lists only its own
+# all write into the shared 04_denoise/ dir, so each lists only its own
 # file(s) there rather than the whole directory -- e.g. re-running "merge"
 # alone must not delete denoise's still-valid errF.rds/dadaF.rds.
 step_output_paths <- function(project_dir, step_id) {
   denoise_dir <- denoise_dir_path(project_dir)
   switch(step_id,
+    primer   = trimmed_dir_path(project_dir),
     qc       = filtered_dir_path(project_dir),
     denoise  = file.path(denoise_dir, c("errF.rds", "errR.rds", "dadaF.rds", "dadaR.rds")),
     merge    = file.path(denoise_dir, "seqtab.rds"),
     chimera  = file.path(denoise_dir, c("seqtab_nochim.rds", "track.rds")),
     taxonomy = taxonomy_dir_path(project_dir),
-    output   = file.path(project_dir, "05_output"),
+    output   = file.path(project_dir, "06_output"),
     character(0)
   )
 }
@@ -62,7 +63,7 @@ reset_downstream <- function(rv, step_id) {
   invisible()
 }
 
-# Analysis steps (Figures/PERMANOVA/ANCOM-BC2) read 05_output/ directly, so
+# Analysis steps (Figures/PERMANOVA/ANCOM-BC2) read 06_output/ directly, so
 # any rebuild or re-transform of the phyloseq object makes their on-screen
 # results stale. mod_output calls this after either; the analysis modules
 # watch rv$phyloseq_rev and clear what they're showing.
@@ -91,8 +92,22 @@ any_running <- function(rv) {
 scan_checkpoints <- function(rv, st) {
   if (is.null(rv$project_dir) || nrow(st) == 0) return(invisible())
 
+  filtn <- filtn_files_df(rv$project_dir, st)
+  if (identical(rv$status$filtn, "IDLE") && nrow(filtn) == nrow(st)) {
+    rv$status$filtn <- "SUCCESS"
+    if (is.null(rv$artifacts$filtn)) {
+      raw <- raw_files_df(rv$project_dir, st)
+      rv$artifacts$filtn <- data.frame(
+        sample = st$sample,
+        reads_in = vapply(raw$fwd, count_fastq_reads, numeric(1)),
+        reads_out = vapply(filtn$fwd, count_fastq_reads, numeric(1)),
+        row.names = NULL
+      )
+    }
+  }
+
   trimmed <- trimmed_files_df(rv$project_dir, st)
-  if (identical(rv$status$primer, "IDLE") && nrow(trimmed) == nrow(st)) {
+  if (identical(rv$status$primer, "IDLE") && nrow(trimmed) == nrow(st) && nrow(filtn) == nrow(st)) {
     rv$status$primer <- "SUCCESS"
   }
 
@@ -106,8 +121,8 @@ scan_checkpoints <- function(rv, st) {
     }
   }
 
-  # errF.rds/errR.rds (4a) are checked directly by mod_denoise's own
-  # "resume mid-step" logic, not here -- this only covers 4b's completion,
+  # errF.rds/errR.rds (6a) are checked directly by mod_denoise's own
+  # "resume mid-step" logic, not here -- this only covers 6b's completion,
   # which is what actually gates the pipeline/Proceed button.
   denoise_dir <- denoise_dir_path(rv$project_dir)
   dada_files <- file.path(denoise_dir, c("dadaF.rds", "dadaR.rds"))
@@ -163,7 +178,7 @@ scan_checkpoints <- function(rv, st) {
     }
   }
 
-  phyloseq_path <- file.path(rv$project_dir, "05_output", "phyloseq.rds")
+  phyloseq_path <- file.path(rv$project_dir, "06_output", "phyloseq.rds")
   if (identical(rv$status$output, "IDLE") && identical(rv$status$taxonomy, "SUCCESS") &&
       fs::file_exists(phyloseq_path) && requireNamespace("phyloseq", quietly = TRUE)) {
     rv$status$output <- "SUCCESS"

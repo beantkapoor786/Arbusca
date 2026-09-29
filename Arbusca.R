@@ -13,6 +13,7 @@ source("R/paths.R")
 source("R/mod_logpanel.R")
 source("R/mod_setup.R")
 source("R/mod_qcheck.R")
+source("R/mod_filtn.R")
 source("R/mod_primer.R")
 source("R/mod_qc.R")
 source("R/mod_denoise.R")
@@ -26,23 +27,24 @@ source("R/mod_ancombc.R")
 
 STEPS <- c(
   qcheck   = "2. Quality Check",
-  primer   = "3. Primer Removal",
-  qc       = "4. Filter and Trim",
-  denoise  = "5. Learn Error Rate and Denoise",
-  merge    = "6. Merge Pairs",
-  chimera  = "7. Remove Chimeras",
-  taxonomy = "8. Taxonomy Assignment using BLAST",
-  output   = "9. Phyloseq Object",
-  figures  = "10. Figures",
-  permanova = "11. PERMANOVA",
-  ancombc  = "12. Differential Abundance (ANCOM-BC2)"
+  filtn    = "3. Remove Ambiguous Bases",
+  primer   = "4. Primer Removal",
+  qc       = "5. Filter and Trim",
+  denoise  = "6. Learn Error Rate and Denoise",
+  merge    = "7. Merge Pairs",
+  chimera  = "8. Remove Chimeras",
+  taxonomy = "9. Taxonomy Assignment using BLAST",
+  output   = "10. Phyloseq Object",
+  figures  = "11. Figures",
+  permanova = "12. PERMANOVA",
+  ancombc  = "13. Differential Abundance (ANCOM-BC2)"
 )
 
 ALL_STEPS <- c(setup = "1. Setup & Raw Reads", STEPS)
 
 # Short labels for the pipeline stepper; panel titles keep the full names.
 STEP_SHORT <- c(
-  setup = "Raw reads", qcheck = "Quality check", primer = "Primer removal",
+  setup = "Raw reads", qcheck = "Quality check", filtn = "Remove Ns", primer = "Primer removal",
   qc = "Filtering", denoise = "Denoising", merge = "Merge pairs",
   chimera = "Chimera removal", taxonomy = "Taxonomy", output = "Phyloseq",
   figures = "Figures", permanova = "PERMANOVA",
@@ -130,12 +132,12 @@ server <- function(input, output, session) {
     running_step = NULL,     # which step has a live process handle, if any
     handles = list(),        # step_id -> processx/callr handle
     status = list(
-      primer = "IDLE", qc = "IDLE", denoise = "IDLE",
+      filtn = "IDLE", primer = "IDLE", qc = "IDLE", denoise = "IDLE",
       merge = "IDLE", chimera = "IDLE", taxonomy = "IDLE", output = "IDLE"
     ),
     log = list(),             # step_id -> character vector of log lines
     artifacts = list(),       # step_id -> R return value of a callr step
-    phyloseq_rev = 0          # bumped whenever 05_output/ changes (see invalidate_analyses)
+    phyloseq_rev = 0          # bumped whenever 06_output/ changes (see invalidate_analyses)
   )
 
   setup <- mod_setup_server("setup", rv)
@@ -145,6 +147,7 @@ server <- function(input, output, session) {
   })
 
   qcheck <- mod_qcheck_server("qcheck", rv, setup$sample_table)
+  mod_filtn_server("filtn", rv, setup$sample_table)
   mod_primer_server("primer", rv, setup$sample_table)
   mod_qc_server("qc", rv, setup$sample_table)
   mod_denoise_server("denoise", rv, setup$sample_table)

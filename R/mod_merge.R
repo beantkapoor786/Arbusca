@@ -1,15 +1,15 @@
-# Step 6 -- Merge Pairs (DADA2 mergePairs -> makeSequenceTable), per
+# Step 7 -- Merge Pairs (DADA2 mergePairs -> makeSequenceTable), per
 # DESIGN.md section 5's "Merge mode (AML1/AML2-aware)": overlap merge
 # (default, short amplicons), forward-only (drop R2 -- amplicon too long to
 # overlap, e.g. nested AML1/AML2), or concatenate (join without overlap).
-# Reads Step 5's dadaF.rds/dadaR.rds; writes seqtab.rds. The ASV length
+# Reads Step 6's dadaF.rds/dadaR.rds; writes seqtab.rds. The ASV length
 # histogram here is the first QC look at the assembled (pre-chimera) ASVs.
 
 mod_merge_ui <- function(id) {
   ns <- shiny::NS(id)
   step_card(
     stacked = TRUE,
-    title = "6. Merge Pairs",
+    title = "7. Merge Pairs",
     description = "Joins each forward read with its reverse partner into one full-length sequence, then builds the table of sequences per sample. Choose the mode that matches whether your reads overlap.",
     params = shiny::tagList(
       shiny::uiOutput(ns("input_status")),
@@ -32,7 +32,7 @@ mod_merge_ui <- function(id) {
             )
           )
         ),
-        shiny::column(6, step_io("Denoised forward and reverse reads from step 5.", "DADA2 mergePairs, then makeSequenceTable.", "seqtab.rds"))
+        shiny::column(6, step_io("Denoised forward and reverse reads from step 6.", "DADA2 mergePairs, then makeSequenceTable.", "seqtab.rds"))
       )
     ),
     results = shiny::tagList(

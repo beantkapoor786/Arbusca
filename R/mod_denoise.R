@@ -1,10 +1,10 @@
-# Step 5 -- Learn Error Rate and Denoise (DADA2 core), per DESIGN.md section 5.
+# Step 6 -- Learn Error Rate and Denoise (DADA2 core), per DESIGN.md section 5.
 # Two sub-stages on one page:
-#   5a. Learn error rate -- learnErrors(F/R), shown via plotErrors. Runs as
+#   6a. Learn error rate -- learnErrors(F/R), shown via plotErrors. Runs as
 #       its own self-contained job (not part of the pipeline FSM/progress
 #       count), since it's a prerequisite the user reviews before denoising,
 #       not the pipeline step itself.
-#   5b. Denoise -- dada(F/R) only, gated on 5a's error models being
+#   6b. Denoise -- dada(F/R) only, gated on 6a's error models being
 #       available (this session, or loaded from disk if resuming). This is
 #       the real pipeline step ("denoise"). Merging pairs and removing
 #       chimeras are their own separate pipeline steps (mod_merge.R,
@@ -14,11 +14,11 @@ mod_denoise_ui <- function(id) {
   ns <- shiny::NS(id)
   step_card(
     stacked = TRUE,
-    title = "5. Learn Error Rate and Denoise",
-    description = "DADA2 first learns the error rates of your sequencing run (5a), then uses them to separate true biological sequences from sequencing errors (5b), producing amplicon sequence variants (ASVs).",
+    title = "6. Learn Error Rate and Denoise",
+    description = "DADA2 first learns the error rates of your sequencing run (6a), then uses them to separate true biological sequences from sequencing errors (6b), producing amplicon sequence variants (ASVs).",
     results = shiny::tagList(
       shiny::uiOutput(ns("input_status")),
-      result_card("5a. Learn error rate",
+      result_card("6a. Learn error rate",
         shiny::div(
           class = "amf-run-row mb-3",
           shiny::actionButton(ns("learn"), "Learn error rate", icon = bsicons::bs_icon("play-fill"), class = "btn-primary"),
@@ -29,7 +29,7 @@ mod_denoise_ui <- function(id) {
         shiny::h6("Log", class = "mt-3"),
         mod_logpanel_ui(ns("learn_log"))
       ),
-      result_card("5b. Denoise",
+      result_card("6b. Denoise",
         shiny::uiOutput(ns("denoise_gate_msg")),
         shiny::fluidRow(
           shiny::column(5,
@@ -47,13 +47,13 @@ mod_denoise_ui <- function(id) {
         mod_logpanel_ui(ns("log"))
       ),
       shiny::uiOutput(ns("results_section")),
-      results_placeholder("Run 5b to see denoised sequence counts per sample.")
+      results_placeholder("Run 6b to see denoised sequence counts per sample.")
     )
   )
 }
 
 # sample_table: reactive() -> data.frame(sample, fwd, rev) of basenames from
-# mod_setup. Denoising reads Step 4's filtered output (02_filtered/).
+# mod_setup. Denoising reads Step 5's filtered output (03_filtered/).
 mod_denoise_server <- function(id, rv, sample_table) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
@@ -64,7 +64,7 @@ mod_denoise_server <- function(id, rv, sample_table) {
       shiny::req(rv$project_dir)
       # Depending on rv$status$qc (even though unused) makes this recompute
       # the moment Quality Control finishes, instead of caching the empty
-      # result from before 02_filtered/ had anything in it.
+      # result from before 03_filtered/ had anything in it.
       rv$status$qc
       filtered_files_df(rv$project_dir, st)
     })
@@ -74,10 +74,10 @@ mod_denoise_server <- function(id, rv, sample_table) {
       if (nrow(files) == 0) {
         return(shiny::div(class = "alert alert-warning small", "No filtered reads found yet -- finish Filter and Trim first."))
       }
-      shiny::div(class = "text-muted small mb-2", sprintf("%d filtered sample(s) ready from 02_filtered/.", nrow(files)))
+      shiny::div(class = "text-muted small mb-2", sprintf("%d filtered sample(s) ready from 03_filtered/.", nrow(files)))
     })
 
-    # --- 5a: learn error rate -- self-contained, not part of the pipeline FSM ---
+    # --- 6a: learn error rate -- self-contained, not part of the pipeline FSM ---
 
     learn_status <- shiny::reactiveVal("IDLE")
     learn_handle <- shiny::reactiveVal(NULL)
@@ -101,7 +101,7 @@ mod_denoise_server <- function(id, rv, sample_table) {
       checked_disk(TRUE)
     })
 
-    # 5a lives outside rv$status (see comment above), so reset_downstream()
+    # 6a lives outside rv$status (see comment above), so reset_downstream()
     # -- which reset_downstream fires on every (re-)launch of an upstream
     # step, per state_engine.R -- has no way to reach it directly. Watch
     # rv$status$qc instead: the moment it drops off SUCCESS (Filter and Trim
@@ -197,13 +197,13 @@ mod_denoise_server <- function(id, rv, sample_table) {
       dada2::plotErrors(res$errR, nominalQ = TRUE)
     }, res = 96)
 
-    # --- 5b: denoise -- the real pipeline step, tied to rv$status$denoise ---
+    # --- 6b: denoise -- the real pipeline step, tied to rv$status$denoise ---
 
     output$badge <- shiny::renderUI(status_badge(rv$status[[step_id]]))
 
     output$denoise_gate_msg <- shiny::renderUI({
       if (is.null(learn_result())) {
-        shiny::div(class = "text-muted small mb-2", "Run 5a first -- denoising needs a learned error model.")
+        shiny::div(class = "text-muted small mb-2", "Run 6a first -- denoising needs a learned error model.")
       } else {
         NULL
       }
