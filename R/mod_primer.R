@@ -149,7 +149,7 @@ primer_check_job <- function(files_df, variants, n_jobs) {
         hits <- vapply(v$sequence, primerHits, numeric(1), reads = reads[[rn]])
         rows[[length(rows) + 1]] <- data.frame(
           sample = files_df$sample[i], role = primers$role[j], primer = primers$primer[j],
-          reads = rn, total = length(reads[[rn]]), t(stats::setNames(hits, v$orientation)),
+          reads = rn, t(stats::setNames(hits, v$orientation)),
           stringsAsFactors = FALSE
         )
       }
@@ -168,14 +168,13 @@ PRIMER_TABLE_PREVIEW_ROWS <- 10
 # pair this with a "Show full table" button (see primer_table_toggle_ui()).
 primer_results_table <- function(df, show_all = FALSE) {
   if (is.null(df) || nrow(df) == 0) {
-    empty_cols <- data.frame(Sample = character(0), Primer = character(0), Reads = character(0),
-                              `Total reads` = numeric(0), check.names = FALSE)
+    empty_cols <- data.frame(Sample = character(0), Primer = character(0), Reads = character(0), check.names = FALSE)
     for (o in PRIMER_ORIENTATIONS) empty_cols[[o]] <- numeric(0)
     return(DT::datatable(empty_cols, rownames = FALSE, options = list(dom = "t")))
   }
   out <- data.frame(
     Sample = df$sample, Primer = sprintf("%s (%s)", df$primer, df$role), Reads = df$reads,
-    `Total reads` = df$total, df[PRIMER_ORIENTATIONS],
+    df[PRIMER_ORIENTATIONS],
     check.names = FALSE
   )
   if (!show_all && nrow(out) > PRIMER_TABLE_PREVIEW_ROWS) {
