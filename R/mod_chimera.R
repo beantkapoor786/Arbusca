@@ -1,7 +1,8 @@
 # Step 8 -- Remove Chimeras (DADA2 removeBimeraDenovo), per DESIGN.md
 # section 5. Reads Step 7's seqtab.rds; writes seqtab_nochim.rds and the
-# full read-tracking table (denoised -> merged -> non-chimeric), pulling the
-# denoised counts back from Step 6's dadaF.rds/dadaR.rds. The final ASV
+# full read-tracking table (raw -> non-chimeric), counting the reads each
+# earlier step left on disk and pulling the denoised counts back from Step
+# 6's dadaF.rds/dadaR.rds. The final ASV
 # length histogram here is the last look before Taxonomy -- a tight band
 # confirms merge/chimera-removal didn't distort the target region.
 
@@ -72,7 +73,16 @@ mod_chimera_server <- function(id, rv, sample_table) {
       out_dir <- denoise_dir_path(rv$project_dir)
       multithread <- .Platform$OS.type != "windows"
 
-      chimera_job <- function(samples, out_dir, method, multithread) {
+      # Forward-read files of each earlier step; pairs are filtered together,
+      # so the R1 count is the pair count.
+      stage_files <- list(
+        raw = file.path(rv$project_dir, st$fwd),
+        filtN = filtn_fastq_paths(rv$project_dir, st$sample)$fwd,
+        trimmed = trimmed_fastq_paths(rv$project_dir, st$sample)$fwd,
+        filtered = filtered_fastq_paths(rv$project_dir, st$sample)$fwd
+      )
+
+      chimera_job <- function(samples, out_dir, method, multithread, stage_files) {
         library(dada2)
         seqtab <- readRDS(file.path(out_dir, "seqtab.rds"))
         dadaFs <- readRDS(file.path(out_dir, "dadaF.rds"))
@@ -86,9 +96,20 @@ mod_chimera_server <- function(id, rv, sample_table) {
         denoisedR <- sapply(dadaRs, getN)
         merged <- rowSums(seqtab)
         nonchim <- rowSums(seqtab_nochim)
+        # NA where a step wrote no file (filterAndTrim skips samples with no reads left).
+        count_reads <- function(paths) {
+          n <- rep(NA_real_, length(paths))
+          ok <- file.exists(paths)
+          if (any(ok)) n[ok] <- ShortRead::countFastq(paths[ok])$records
+          n
+        }
 
         track <- data.frame(
           sample = samples,
+          raw = count_reads(stage_files$raw),
+          filtN = count_reads(stage_files$filtN),
+          trimmed = count_reads(stage_files$trimmed),
+          filtered = count_reads(stage_files$filtered),
           denoisedF = as.numeric(denoisedF[samples]),
           denoisedR = as.numeric(denoisedR[samples]),
           merged = as.numeric(merged[samples]),
@@ -103,7 +124,7 @@ mod_chimera_server <- function(id, rv, sample_table) {
         )
       }
 
-      launch_step_callr(rv, step_id, chimera_job, list(samples = st$sample, out_dir = out_dir, method = input$method %||% "consensus", multithread = multithread))
+      launch_step_callr(rv, step_id, chimera_job, list(samples = st$sample, out_dir = out_dir, method = input$method %||% "consensus", multithread = multithread, stage_files = stage_files))
     })
 
     shiny::observeEvent(input$cancel, {
@@ -119,7 +140,7 @@ mod_chimera_server <- function(id, rv, sample_table) {
         shiny::h6(sprintf("ASV length distribution (%d non-chimeric ASVs)", res$n_asvs)),
         shiny::div(class = "text-muted small mb-1", "Expect a tight band around the target SSU region; a scattered/multi-modal spread signals primer, merge-mode, or truncLen problems."),
         shiny::plotOutput(ns("length_hist"), height = "260px"),
-        shiny::h6("Reads tracked (denoised -> merged -> non-chimeric)"),
+        shiny::h6("Reads tracked (raw -> non-chimeric)"),
         dt_output(ns("track_table")),
         shiny::downloadButton(ns("download_track"), "Download as CSV", class = "btn-outline-secondary btn-sm mb-2")
       )
@@ -136,13 +157,15 @@ mod_chimera_server <- function(id, rv, sample_table) {
     output$track_table <- DT::renderDataTable({
       res <- rv$artifacts[[step_id]]
       if (is.null(res)) {
-        empty <- data.frame(Sample = character(0), `Denoised (F)` = integer(0), `Denoised (R)` = integer(0),
+        empty <- data.frame(Sample = character(0), Raw = integer(0), `N-filtered` = integer(0), `Primer-trimmed` = integer(0),
+                             Filtered = integer(0), `Denoised (F)` = integer(0), `Denoised (R)` = integer(0),
                              Merged = integer(0), `Non-chimeric` = integer(0), check.names = FALSE)
         return(DT::datatable(empty, rownames = FALSE, options = list(dom = "t")))
       }
       t <- res$track
       df <- data.frame(
-        Sample = t$sample, `Denoised (F)` = t$denoisedF, `Denoised (R)` = t$denoisedR,
+        Sample = t$sample, Raw = t$raw, `N-filtered` = t$filtN, `Primer-trimmed` = t$trimmed,
+        Filtered = t$filtered, `Denoised (F)` = t$denoisedF, `Denoised (R)` = t$denoisedR,
         Merged = t$merged, `Non-chimeric` = t$nonchim, check.names = FALSE
       )
       DT::datatable(df, rownames = FALSE, options = list(dom = "t", pageLength = nrow(df) + 1))
