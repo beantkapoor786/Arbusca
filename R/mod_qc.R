@@ -223,18 +223,18 @@ mod_qc_server <- function(id, rv, sample_table) {
     output$plots <- shiny::renderUI({
       width <- if (preview_n() > 2) 12 else 6
       shiny::fluidRow(
-        shiny::column(width, shiny::h6("Forward"), shiny::plotOutput(ns("quality_plot_fwd"), height = "auto")),
-        shiny::column(width, shiny::h6("Reverse"), shiny::plotOutput(ns("quality_plot_rev"), height = "auto"))
+        shiny::column(width, shiny::h6("Forward"), plotly::plotlyOutput(ns("quality_plot_fwd"), height = paste0(plot_height(), "px"))),
+        shiny::column(width, shiny::h6("Reverse"), plotly::plotlyOutput(ns("quality_plot_rev"), height = paste0(plot_height(), "px")))
       )
     })
-    output$quality_plot_fwd <- shiny::renderPlot({
+    output$quality_plot_fwd <- plotly::renderPlotly({
       shiny::req(preview_result())
-      preview_result()$fwd
-    }, height = function() plot_height())
-    output$quality_plot_rev <- shiny::renderPlot({
+      quality_plotly(preview_result()$fwd)
+    })
+    output$quality_plot_rev <- plotly::renderPlotly({
       shiny::req(preview_result())
-      preview_result()$rev
-    }, height = function() plot_height())
+      quality_plotly(preview_result()$rev)
+    })
 
     # Only offer downloads once profiles actually exist for this session.
     output$downloads <- shiny::renderUI({

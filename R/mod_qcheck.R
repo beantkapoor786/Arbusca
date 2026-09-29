@@ -5,6 +5,78 @@
 # stage with artifacts, so it carries no rv$status entry and is always
 # treated as complete (see app.R's setup/qcheck special-casing).
 
+# Interactive version of a dada2::plotQualityProfile() ggplot (also used by
+# Step 5's preview), rebuilt from the data inside it rather than converted
+# with ggplotly(): ggplotly splits the heatmap into hundreds of partial
+# heatmaps that plotly stretches across the gaps between tiles, drawing solid
+# grey blocks where the real plot has sparse cells. Same marks and colors as
+# DADA2's plot, one panel per file (or one when aggregated, where the panel
+# column is `label` and the read count is a fixed label, not per-file data);
+# hover shows the values.
+quality_plotly <- function(p) {
+  panel_col <- names(p$facet$params$facets)[1]
+  tiles <- p$data
+  lines <- Filter(function(l) inherits(l$geom, "GeomLine"), p$layers)
+  stats <- lines[[1]]$data
+  has_cum <- any(vapply(lines, function(l) identical(rlang::as_label(l$mapping$y), "Cum"), logical(1)))
+  text_layer <- Filter(function(l) inherits(l$geom, "GeomText"), p$layers)[[1]]
+  in_panel <- function(df, f) if (is.null(df[[panel_col]])) df else df[df[[panel_col]] == f, , drop = FALSE]
+  reads_label <- function(f) text_layer$aes_params$label %||% in_panel(text_layer$data, f)$rclabel
+  files <- if (is.factor(tiles[[panel_col]])) levels(tiles[[panel_col]]) else sort(unique(tiles[[panel_col]]))
+  n <- length(files)
+  n_col <- ceiling(sqrt(n))  # facet_wrap's default grid
+  x_range <- range(tiles$Cycle) + c(-1, 1)
+  y_range <- c(-1, max(tiles$Score) + 1)
+  z_range <- range(tiles$Count)
+
+  panels <- lapply(files, function(f) {
+    t <- in_panel(tiles, f)
+    s <- in_panel(stats, f)
+    cyc <- sort(unique(t$Cycle))
+    sc <- seq(min(t$Score), max(t$Score))
+    z <- matrix(NA_real_, length(sc), length(cyc))  # full grid: empty cells stay blank
+    z[cbind(match(t$Score, sc), match(t$Cycle, cyc))] <- t$Count
+    add_stat <- function(pl, y, color, width, dash, label) {
+      plotly::add_lines(pl, x = s$Cycle, y = y, line = list(color = color, width = width, dash = dash),
+                        hovertemplate = paste0("Cycle %{x}: ", label, " Q%{y:.1f}<extra></extra>"))
+    }
+    pl <- plotly::plot_ly() |>
+      plotly::add_heatmap(x = cyc, y = sc, z = z, zmin = z_range[1], zmax = z_range[2],
+                          colorscale = list(c(0, "#F5F5F5"), c(1, "black")), showscale = FALSE,
+                          hovertemplate = "Cycle %{x}, Q%{y}: %{z} reads<extra></extra>") |>
+      add_stat(s$Mean, "#66C2A5", 1.5, "solid", "mean") |>
+      add_stat(s$Q25, "#FC8D62", 0.8, "dash", "25th percentile") |>
+      add_stat(s$Q50, "#FC8D62", 0.8, "solid", "median") |>
+      add_stat(s$Q75, "#FC8D62", 0.8, "dash", "75th percentile")
+    if (has_cum) {
+      # Cum is the fraction of reads at least this long, scaled x10 to share the Q axis.
+      pl <- plotly::add_lines(pl, x = s$Cycle, y = s$Cum, customdata = 10 * s$Cum, line = list(color = "red", width = 0.8),
+                              hovertemplate = "Cycle %{x}: %{customdata:.1f}% of reads this long<extra></extra>")
+    }
+    pl
+  })
+
+  out <- plotly::subplot(panels, nrows = ceiling(n / n_col), margin = c(0.02, 0.02, 0.05, 0.05))
+  axes <- list()
+  notes <- list()
+  for (i in seq_len(n)) {
+    k <- if (i == 1) "" else i
+    axis <- list(showline = TRUE, mirror = TRUE, linecolor = "#999999", zeroline = FALSE, showgrid = FALSE)
+    axes[[paste0("xaxis", k)]] <- c(axis, list(range = x_range, title = list(text = if (i + n_col > n) "Cycle" else "")))
+    axes[[paste0("yaxis", k)]] <- c(axis, list(range = y_range, title = list(text = if ((i - 1) %% n_col == 0) "Quality Score" else "")))
+    notes[[length(notes) + 1]] <- list(text = files[i], xref = paste0("x", k, " domain"), yref = paste0("y", k, " domain"),
+                                        x = 0.5, y = 1, yanchor = "bottom", showarrow = FALSE, font = list(size = 11))
+    notes[[length(notes) + 1]] <- list(text = reads_label(files[i]), xref = paste0("x", k), yref = paste0("y", k),
+                                        x = x_range[1], y = 0, xanchor = "left", yanchor = "bottom", showarrow = FALSE,
+                                        font = list(color = "red"))
+  }
+  out <- do.call(plotly::layout, c(list(out), axes, list(
+    annotations = notes, showlegend = FALSE, hovermode = "closest",
+    paper_bgcolor = "white", plot_bgcolor = "white", margin = list(t = 30)
+  )))
+  plotly::config(out, displaylogo = FALSE, modeBarButtonsToRemove = c("lasso2d", "select2d"))
+}
+
 mod_qcheck_ui <- function(id) {
   ns <- shiny::NS(id)
   step_card(
@@ -129,18 +201,18 @@ mod_qcheck_server <- function(id, rv, sample_table) {
     output$plots <- shiny::renderUI({
       width <- if (profile_n() > 2) 12 else 6
       shiny::fluidRow(
-        shiny::column(width, shiny::h6("Forward"), shiny::plotOutput(ns("quality_plot_fwd"), height = "auto")),
-        shiny::column(width, shiny::h6("Reverse"), shiny::plotOutput(ns("quality_plot_rev"), height = "auto"))
+        shiny::column(width, shiny::h6("Forward"), plotly::plotlyOutput(ns("quality_plot_fwd"), height = paste0(plot_height(), "px"))),
+        shiny::column(width, shiny::h6("Reverse"), plotly::plotlyOutput(ns("quality_plot_rev"), height = paste0(plot_height(), "px")))
       )
     })
-    output$quality_plot_fwd <- shiny::renderPlot({
+    output$quality_plot_fwd <- plotly::renderPlotly({
       shiny::req(profile_result())
-      profile_result()$fwd
-    }, height = function() plot_height())
-    output$quality_plot_rev <- shiny::renderPlot({
+      quality_plotly(profile_result()$fwd)
+    })
+    output$quality_plot_rev <- plotly::renderPlotly({
       shiny::req(profile_result())
-      profile_result()$rev
-    }, height = function() plot_height())
+      quality_plotly(profile_result()$rev)
+    })
 
     # Only offer downloads once profiles actually exist for this session.
     output$downloads <- shiny::renderUI({
