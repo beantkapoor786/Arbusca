@@ -31,10 +31,7 @@ mod_qcheck_ui <- function(id) {
     results = shiny::tagList(
       result_card("Raw read quality profiles",
         shiny::uiOutput(ns("profile_error_alert")),
-        shiny::fluidRow(
-          shiny::column(6, shiny::h6("Forward"), shiny::plotOutput(ns("quality_plot_fwd"), height = "360px")),
-          shiny::column(6, shiny::h6("Reverse"), shiny::plotOutput(ns("quality_plot_rev"), height = "360px"))
-        ),
+        shiny::uiOutput(ns("plots")),
         actions = shiny::uiOutput(ns("downloads"))
       )
     )
@@ -70,6 +67,7 @@ mod_qcheck_server <- function(id, rv, sample_table) {
     profile_handle <- shiny::reactiveVal(NULL)
     profile_result <- shiny::reactiveVal(NULL)  # list(fwd=, rev=) ggplot objects
     profile_error <- shiny::reactiveVal(NULL)
+    profile_n <- shiny::reactiveVal(1)  # facets per plot (1 when aggregated)
     output$profile_error_alert <- shiny::renderUI({
       shiny::req(identical(profile_status(), "ERROR"), profile_error())
       shiny::div(class = "alert alert-danger small mb-2", profile_error())
@@ -96,6 +94,7 @@ mod_qcheck_server <- function(id, rv, sample_table) {
         stdout = "|", stderr = "|", supervise = TRUE
       )
       profile_handle(h)
+      profile_n(if (aggregate) 1 else n)
       profile_status("RUNNING")
       profile_result(NULL)
     })
@@ -118,14 +117,30 @@ mod_qcheck_server <- function(id, rv, sample_table) {
     })
 
     output$badge <- shiny::renderUI(status_badge(profile_status()))
+
+    # plotQualityProfile facets with facet_wrap's default grid
+    # (ceiling(sqrt(n)) columns), so size the plot to its facet rows. Beyond
+    # 2 samples the facets get cramped in half-width columns, so Forward and
+    # Reverse are stacked full-width instead of side by side.
+    plot_height <- shiny::reactive({
+      n <- profile_n()
+      max(360, ceiling(n / ceiling(sqrt(n))) * 300)
+    })
+    output$plots <- shiny::renderUI({
+      width <- if (profile_n() > 2) 12 else 6
+      shiny::fluidRow(
+        shiny::column(width, shiny::h6("Forward"), shiny::plotOutput(ns("quality_plot_fwd"), height = "auto")),
+        shiny::column(width, shiny::h6("Reverse"), shiny::plotOutput(ns("quality_plot_rev"), height = "auto"))
+      )
+    })
     output$quality_plot_fwd <- shiny::renderPlot({
       shiny::req(profile_result())
       profile_result()$fwd
-    })
+    }, height = function() plot_height())
     output$quality_plot_rev <- shiny::renderPlot({
       shiny::req(profile_result())
       profile_result()$rev
-    })
+    }, height = function() plot_height())
 
     # Only offer downloads once profiles actually exist for this session.
     output$downloads <- shiny::renderUI({

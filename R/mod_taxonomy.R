@@ -117,7 +117,11 @@ mod_taxonomy_ui <- function(id) {
           shiny::column(3, shiny::textInput(ns("evalue"), "Max. e-value", value = taxonomy_defaults$evalue, width = "100%")),
           shiny::column(3, shiny::numericInput(ns("max_target_seqs"), "Max target seqs", value = taxonomy_defaults$max_target_seqs, min = 1, width = "100%"))
         ),
-        shiny::div(class = "amf-param-hint", "Defaults per Davison et al. 2012 / Lekberg et al. 2018: \u226597% identity, \u226595% query coverage, e-value < 1e-50.")
+        shiny::div(class = "amf-param-hint", "Defaults per ",
+          shiny::tags$a(href = "https://doi.org/10.1111/nph.71158", target = "_blank", rel = "noopener", "Alguacil et al. 2026"),
+          " / ",
+          shiny::tags$a(href = "https://doi.org/10.1007/s11104-025-07677-z", target = "_blank", rel = "noopener", "Ma et al. 2025"),
+          ":\u226597% identity, \u226595% query coverage, e-value < 1e-50.")
       )
     ),
     results = shiny::tagList(

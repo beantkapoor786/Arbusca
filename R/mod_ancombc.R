@@ -150,6 +150,104 @@ ancombc_significant_long <- function(df) {
   out[order(out$Comparison, out$q), , drop = FALSE]
 }
 
+# Readable name and direction wording for one primary-analysis term.
+# levels_map: categorical fixed-effect variable -> its levels, reference
+# first (so "StateWashington" reads "Washington vs Texas (State)");
+# numeric_vars: the numeric ones. Anything else (e.g. interactions) keeps
+# its raw name.
+ancombc_term_label <- function(term, levels_map, numeric_vars) {
+  if (term %in% numeric_vars) {
+    return(list(label = term, up = sprintf("increase with %s", term), down = sprintf("decrease with %s", term)))
+  }
+  for (v in names(levels_map)) {
+    lv <- levels_map[[v]]
+    hit <- lv[-1][paste0(v, lv[-1]) == term]
+    if (length(hit) == 1) {
+      return(list(label = sprintf("%s vs %s (%s)", hit, lv[1], v),
+                  up = sprintf("higher in %s", hit), down = sprintf("lower in %s", hit)))
+    }
+    # Pairwise-test name "<v><B>_<v><A>": B vs A.
+    for (a in lv) for (b in lv) {
+      if (identical(paste0(v, b, "_", v, a), term)) {
+        return(list(label = sprintf("%s vs %s (%s)", b, a, v),
+                    up = sprintf("higher in %s", b), down = sprintf("lower in %s", b)))
+      }
+    }
+  }
+  list(label = term, up = "positive LFC", down = "negative LFC")
+}
+
+# One alert per non-intercept term, like the PERMANOVA summary: how many
+# taxa differ and which way, listing the strongest (largest |LFC|) first.
+ancombc_primary_summary <- function(df, levels_map, numeric_vars, max_listed = 10) {
+  terms <- setdiff(sub("^lfc_", "", grep("^lfc_", names(df), value = TRUE)), "(Intercept)")
+  sig <- ancombc_significant_long(df)
+  lapply(terms, function(term) {
+    lab <- ancombc_term_label(term, levels_map, numeric_vars)
+    s <- sig[sig$Comparison == term, , drop = FALSE]
+    if (nrow(s) == 0) {
+      return(shiny::div(class = "alert alert-secondary small mb-2",
+        sprintf("%s: none of the %d taxa tested differ significantly.", lab$label, nrow(df))))
+    }
+    s <- s[order(-abs(s$LFC)), , drop = FALSE]
+    shown <- utils::head(s, max_listed)
+    shiny::div(class = "alert alert-success small mb-2",
+      sprintf("%s: %d of %d taxa differ significantly (%d %s, %d %s):", lab$label, nrow(s), nrow(df),
+              sum(s$LFC > 0), lab$up, sum(s$LFC < 0), lab$down),
+      shiny::tags$ul(class = "mb-0", lapply(seq_len(nrow(shown)), function(i) shiny::tags$li(sprintf(
+        "%s: %s (LFC = %.2f, q = %s)", shown$Taxon[i], if (shown$LFC[i] > 0) lab$up else lab$down, shown$LFC[i], signif(shown$q[i], 3))))),
+      if (nrow(s) > max_listed) shiny::div(sprintf("...and %d more, see the table.", nrow(s) - max_listed))
+    )
+  })
+}
+
+# Pairwise test: often dozens of comparisons, so list only those with
+# significant taxa (up to max_listed taxa each) and count the rest.
+ancombc_pairwise_summary <- function(df, levels_map, numeric_vars, max_listed = 5) {
+  terms <- setdiff(sub("^lfc_", "", grep("^lfc_", names(df), value = TRUE)), "(Intercept)")
+  sig <- ancombc_significant_long(df)
+  hit_terms <- terms[terms %in% sig$Comparison]
+  if (length(hit_terms) == 0) {
+    return(shiny::div(class = "alert alert-secondary small mb-2",
+      sprintf("None of the %d pairwise comparisons show a significantly different taxon (%d taxa tested).", length(terms), nrow(df))))
+  }
+  items <- lapply(hit_terms, function(term) {
+    lab <- ancombc_term_label(term, levels_map, numeric_vars)
+    s <- sig[sig$Comparison == term, , drop = FALSE]
+    s <- s[order(-abs(s$LFC)), , drop = FALSE]
+    shown <- utils::head(s, max_listed)
+    shiny::tags$li(sprintf("%s: %d taxa (%s%s)", lab$label, nrow(s),
+      paste(sprintf("%s %s", shown$Taxon, ifelse(shown$LFC > 0, lab$up, lab$down)), collapse = ", "),
+      if (nrow(s) > max_listed) sprintf(", and %d more", nrow(s) - max_listed) else ""))
+  })
+  shiny::div(class = "alert alert-success small mb-2",
+    sprintf("%d of %d pairwise comparisons have significantly different taxa:", length(hit_terms), length(terms)),
+    shiny::tags$ul(class = "mb-0", items),
+    if (length(hit_terms) < length(terms)) shiny::div(sprintf("The other %d comparisons show none.", length(terms) - length(hit_terms)))
+  )
+}
+
+# Global test: taxa whose abundance differs across the groups at all,
+# smallest q first. (Sorted by q, not W: ancombc2's global W doesn't rank
+# significance -- significant taxa can have W near 0.)
+ancombc_global_summary <- function(df, group, max_listed = 10) {
+  s <- df[ancombc_is_sig(df$diff_abn, df$passed_ss), , drop = FALSE]
+  across <- if (is.null(group)) "the groups" else sprintf("the %s groups", group)
+  if (nrow(s) == 0) {
+    return(shiny::div(class = "alert alert-secondary small mb-2",
+      sprintf("None of the %d taxa tested differ significantly across %s.", nrow(df), across)))
+  }
+  s <- s[order(s$q_val), , drop = FALSE]
+  shown <- utils::head(s, max_listed)
+  shiny::div(class = "alert alert-success small mb-2",
+    sprintf("%d of %d taxa differ significantly across %s:", nrow(s), nrow(df), across),
+    shiny::tags$ul(class = "mb-0", lapply(seq_len(nrow(shown)), function(i) shiny::tags$li(sprintf(
+      "%s (q = %s)", shown$taxon[i], signif(shown$q_val[i], 3))))),
+    if (nrow(s) > max_listed) shiny::div(sprintf("...and %d more, see the table.", nrow(s) - max_listed)),
+    shiny::div(class = "mt-1", "The global test says only that a taxon differs somewhere among the groups; the pairwise test shows which groups.")
+  )
+}
+
 ancombc_round <- function(df) {
   num <- vapply(df, is.numeric, logical(1))
   df[num] <- lapply(df[num], function(x) signif(x, 4))
@@ -258,6 +356,7 @@ mod_ancombc_ui <- function(id) {
         shiny::h6("Log", class = "mt-3"),
         mod_logpanel_ui(ns("log"))
       ),
+      shiny::uiOutput(ns("error_alert")),
       shiny::uiOutput(ns("results_section")),
       results_placeholder("Run ANCOM-BC2 to see differentially abundant taxa.")
     )
@@ -331,6 +430,23 @@ mod_ancombc_server <- function(id, rv, sample_table) {
       if (nzchar(trimws(input$rand_formula %||% ""))) {
         rand <- parse_rhs(input$rand_formula, m, "Random-effects")
         if (!rand$ok) return(rand)
+      }
+      # ancombc2 can't estimate a term the others fully determine (e.g. State
+      # when every Location lies in one State) and fails only after its
+      # checks, with a cryptic "Estimation failed" -- catch it here instead.
+      mm_data <- m[stats::complete.cases(m[fix$vars]), fix$vars, drop = FALSE]
+      mm <- tryCatch(stats::model.matrix(stats::as.formula(paste("~", fix$rhs)), mm_data), error = function(e) e)
+      if (inherits(mm, "error")) {
+        # e.g. a variable with a single level: nothing to compare.
+        return(list(ok = FALSE, msg = sprintf("Can't build the fixed-effects model: %s. Check that each categorical variable has at least two levels.", conditionMessage(mm))))
+      }
+      qr_mm <- qr(mm)
+      if (qr_mm$rank < ncol(mm)) {
+        term_labels <- attr(stats::terms(stats::as.formula(paste("~", fix$rhs))), "term.labels")
+        aliased <- unique(term_labels[attr(mm, "assign")[qr_mm$pivot[(qr_mm$rank + 1):ncol(mm)]]])
+        return(list(ok = FALSE, msg = sprintf(
+          "%s is confounded with %s: one is completely determined by the other (e.g. every site lies in a single region), so ANCOM-BC2 can't separate their effects. Remove one of them from the fixed-effects formula.",
+          paste(aliased, collapse = ", "), paste(setdiff(term_labels, aliased), collapse = ", "))))
       }
       cat_fix <- fix$vars[!vapply(m[fix$vars], is.numeric, logical(1))]
       list(ok = TRUE, fix = fix$rhs, rand = rand$rhs, vars = unique(c(fix$vars, rand$vars)), cat_fix = cat_fix)
@@ -453,10 +569,36 @@ mod_ancombc_server <- function(id, rv, sample_table) {
 
       launch_step_callr(rv, step_id, ancombc_job,
                         list(code = script(), table_els = vapply(ANCOMBC_TABLES, `[[`, "", "el")))
+
+      # Levels as the model saw them (group: the chosen order; others: R's
+      # default sorted factor levels), for naming comparisons in the summary.
+      m <- meta()
+      fix_vars <- all.vars(stats::as.formula(paste("~", p$fix)))
+      is_num <- vapply(m[fix_vars], is.numeric, logical(1))
+      last_run(list(
+        group = p$group,
+        numeric_vars = fix_vars[is_num],
+        levels_map = sapply(fix_vars[!is_num], function(v) {
+          if (identical(v, p$group)) p$levels else sort(unique(as.character(stats::na.omit(m[[v]]))))
+        }, simplify = FALSE)
+      ))
     })
+    last_run <- shiny::reactiveVal(list(numeric_vars = character(0), levels_map = list()))
 
     shiny::observeEvent(input$cancel, {
       cancel_step(rv, step_id)
+    })
+
+    # A failed run leaves no results, so surface the error itself (the last
+    # "ERROR:" line proc_runner appends to the log) where results would be.
+    output$error_alert <- shiny::renderUI({
+      shiny::req(identical(rv$status[[step_id]], "ERROR"))
+      # Keep only the underlying cause, not callr's "! in callr subprocess." wrapper.
+      err <- utils::tail(grep("^ERROR:", rv$log[[step_id]], value = TRUE), 1)
+      msg <- if (length(err) > 0) trimws(gsub("(^|\n)!\\s*", "\\1", sub("(?s)^.*Caused by error:\\s*", "", sub("^ERROR:\\s*", "", err), perl = TRUE)))
+      shiny::div(class = "alert alert-danger small", style = "white-space: pre-line;",
+        shiny::strong("ANCOM-BC2 failed. "),
+        if (length(msg) > 0 && nzchar(msg)) msg else "See the log above for details.")
     })
 
     result_table <- function(key) {
@@ -478,6 +620,11 @@ mod_ancombc_server <- function(id, rv, sample_table) {
           shiny::div(class = "text-muted small mb-2", spec$desc),
           shiny::checkboxInput(ns(paste0("sig_", key)), "Significant taxa only (q < alpha and passed sensitivity analysis)", value = TRUE, width = "100%"),
           dt_output(ns(paste0("table_", key))),
+          shiny::div(class = "mt-2", switch(key,
+            primary = ancombc_primary_summary(primary, last_run()$levels_map, last_run()$numeric_vars),
+            global = ancombc_global_summary(res$tables[[spec$el]], last_run()$group),
+            pairwise = ancombc_pairwise_summary(res$tables[[spec$el]], last_run()$levels_map, last_run()$numeric_vars)
+          )),
           actions = shiny::downloadButton(ns(paste0("download_", key)), "Download CSV", class = "btn-outline-secondary btn-sm")
         )
       })

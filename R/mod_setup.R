@@ -277,14 +277,33 @@ mod_setup_server <- function(id, rv) {
       paste(tokens[first_idx:last_idx], collapse = delim)
     }
 
+    # The naming settings aren't saved, so when reopening a project that was
+    # already run, recover them from the sample names its 02_trimmed/ files
+    # were written under -- otherwise the defaults produce different names,
+    # no checkpoint matches, and nothing resumes. NULL if there's nothing to
+    # match (fresh project) or no candidate reproduces those names exactly.
+    guess_sample_naming <- function(project_dir, files) {
+      if (!fs::dir_exists(trimmed_dir_path(project_dir))) return(NULL)
+      trimmed <- fs::path_file(fs::dir_ls(trimmed_dir_path(project_dir), regexp = "_R1\\.trimmed\\.fastq\\.gz$"))
+      if (length(trimmed) == 0) return(NULL)
+      target <- sort(sub("_R1\\.trimmed\\.fastq\\.gz$", "", trimmed))
+      fwd_files <- files[grepl("(^|[._-])R1([._-]|$)", files)]
+      for (delim in c("_", "-", ".")) for (first in 1:3) for (last in first:6) {
+        samples <- vapply(fwd_files, extract_sample, character(1), delim = delim, first_idx = first, last_idx = last, USE.NAMES = FALSE)
+        if (identical(sort(unique(samples)), target)) return(list(delim = delim, first = first, last = last))
+      }
+      NULL
+    }
+
     output$files_section <- shiny::renderUI({
       if (is.null(rv$project_dir)) return(NULL)
+      naming <- guess_sample_naming(rv$project_dir, files_in_dir()) %||% list(delim = "_", first = 1, last = 1)
       result_card("Samples detected",
         shiny::uiOutput(ns("sample_count")),
         shiny::fluidRow(
-          shiny::column(4, shiny::textInput(ns("sample_delim"), "Sample name delimiter", value = "_", width = "100%")),
-          shiny::column(4, shiny::numericInput(ns("token_first"), "First index", value = 1, min = 1, width = "100%")),
-          shiny::column(4, shiny::numericInput(ns("token_last"), "Last index", value = 1, min = 1, width = "100%"))
+          shiny::column(4, shiny::textInput(ns("sample_delim"), "Sample name delimiter", value = naming$delim, width = "100%")),
+          shiny::column(4, shiny::numericInput(ns("token_first"), "First index", value = naming$first, min = 1, width = "100%")),
+          shiny::column(4, shiny::numericInput(ns("token_last"), "Last index", value = naming$last, min = 1, width = "100%"))
         ),
         shiny::div(
           class = "amf-param-hint mb-2",

@@ -327,6 +327,31 @@ mod_permanova_server <- function(id, rv, sample_table) {
 
       perm_tab <- permanova_display_table(res$permanova, "Term")
 
+      # One sentence per tested term (every row but Residual/Total): R2 as the
+      # share of variation explained, plus a pointer back to betadisper when
+      # that term's dispersion also differed.
+      perm <- as.data.frame(res$permanova, check.names = FALSE)
+      terms <- setdiff(rownames(perm), c("Residual", "Total"))
+      perm_interp <- lapply(terms, function(term) {
+        p <- perm[term, "Pr(>F)"]
+        r2 <- sprintf("%.1f%%", 100 * perm[term, "R2"])
+        label <- if (identical(term, "Model")) "The model as a whole" else term
+        disp_p <- if (term %in% names(res$dispersion)) res$dispersion[[term]]$tab[1, "Pr(>F)"] else NA
+        if (p < 0.05) {
+          shiny::div(class = if (isTRUE(disp_p < 0.05)) "alert alert-warning small mb-2" else "alert alert-success small mb-2",
+            sprintf("%s significantly explains community composition (R\u00b2 = %s of the variation, p = %s).", label, r2, signif(p, 3)),
+            if (isTRUE(disp_p < 0.05)) " Its groups also differ in dispersion (see betadisper below), so part of this effect may reflect unequal spread rather than a shift in composition."
+          )
+        } else {
+          shiny::div(class = "alert alert-secondary small mb-2",
+            sprintf("%s has no significant effect on community composition (R\u00b2 = %s, p = %s).", label, r2, signif(p, 3)))
+        }
+      })
+      if (length(terms) > 1 && identical(s$by, names(PERMANOVA_BY)[PERMANOVA_BY == "terms"])) {
+        perm_interp <- c(perm_interp, list(shiny::div(class = "text-muted small",
+          "Sequential tests: each term is assessed after the ones listed above it, so reordering the formula can change these results. Use Marginal to test each term after all the others.")))
+      }
+
       disp_ui <- lapply(names(res$dispersion), function(v) {
         tab <- res$dispersion[[v]]$tab
         p <- tab[1, "Pr(>F)"]
@@ -346,10 +371,26 @@ mod_permanova_server <- function(id, rv, sample_table) {
         )
       })
 
+      # Which pairs differ after Bonferroni correction, strongest (largest R2)
+      # first.
       pair_ui <- lapply(names(res$pairwise), function(v) {
+        pw <- res$pairwise[[v]]
+        sig <- pw[pw$p_bonferroni < 0.05, , drop = FALSE]
+        sig <- sig[order(-sig$R2), , drop = FALSE]
+        interp <- if (nrow(sig) == 0) {
+          shiny::div(class = "alert alert-secondary small",
+            sprintf("None of the %d %s pairs differ significantly after Bonferroni correction.", nrow(pw), v))
+        } else {
+          shiny::div(class = "alert alert-success small",
+            sprintf("%d of %d %s pairs differ significantly after Bonferroni correction:", nrow(sig), nrow(pw), v),
+            shiny::tags$ul(class = "mb-0", lapply(seq_len(nrow(sig)), function(i) shiny::tags$li(sprintf(
+              "%s vs %s (R² = %.1f%%, adjusted p = %s)", sig$group1[i], sig$group2[i], 100 * sig$R2[i], signif(sig$p_bonferroni[i], 3)))))
+          )
+        }
         shiny::tagList(
           shiny::h6(sprintf("Pairwise PERMANOVA: %s", v), class = "mt-3"),
-          permanova_dt(permanova_display_table(res$pairwise[[v]]))
+          permanova_dt(permanova_display_table(pw)),
+          shiny::div(class = "mt-2", interp)
         )
       })
 
@@ -359,6 +400,7 @@ mod_permanova_server <- function(id, rv, sample_table) {
             "~ %s | %s | %s permutations | %s | %d samples", s$formula, s$distance,
             format(s$permutations, big.mark = ","), s$by, res$n_samples)),
           permanova_dt(perm_tab),
+          shiny::div(class = "mt-2", perm_interp),
           actions = shiny::downloadButton(ns("download_permanova"), "Download CSV", class = "btn-outline-secondary btn-sm")
         ),
         result_card("Homogeneity of dispersion (betadisper)",
