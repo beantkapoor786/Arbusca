@@ -203,7 +203,7 @@ mod_qc_server <- function(id, rv, sample_table) {
           preview_status("ERROR")
         } else {
           preview_error(NULL)
-          preview_result(result)
+          preview_result(lapply(result, label_read_pairs))
           preview_status("SUCCESS")
         }
       }

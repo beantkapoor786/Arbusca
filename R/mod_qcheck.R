@@ -5,6 +5,22 @@
 # stage with artifacts, so it carries no rv$status entry and is always
 # treated as complete (see Arbusca.R's setup/qcheck special-casing).
 
+# plotQualityProfile() labels each file "Reads: N", or "Reads >= 5e+05" once
+# N reaches its 500,000-read sample size, though it still counts every read.
+# Every R1 read has an R2 mate, so that count is the number of read pairs,
+# and Forward and Reverse show the same number. Relabel with the exact count.
+label_read_pairs <- function(p) {
+  text_layer <- Filter(function(l) inherits(l$geom, "GeomText"), p$layers)[[1]]
+  fmt <- function(x) sprintf("Read pairs: %s", formatC(x, format = "d", big.mark = ","))
+  if (is.null(text_layer$aes_params$label)) {
+    text_layer$data$rclabel <- fmt(text_layer$data$rc)
+  } else {
+    # Aggregated: a single "Total reads: N" annotation, summed over the files.
+    text_layer$aes_params$label <- fmt(as.numeric(sub("\\D+", "", text_layer$aes_params$label)))
+  }
+  p
+}
+
 # Interactive version of a dada2::plotQualityProfile() ggplot (also used by
 # Step 5's preview), rebuilt from the data inside it rather than converted
 # with ggplotly(): ggplotly splits the heatmap into hundreds of partial
@@ -182,7 +198,7 @@ mod_qcheck_server <- function(id, rv, sample_table) {
           profile_status("ERROR")
         } else {
           profile_error(NULL)
-          profile_result(result)
+          profile_result(lapply(result, label_read_pairs))
           profile_status("SUCCESS")
         }
       }
