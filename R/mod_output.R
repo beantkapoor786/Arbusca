@@ -246,7 +246,7 @@ mod_output_server <- function(id, rv, sample_table) {
                      sprintf("%d pipeline sample(s) excluded (no metadata row): %s.",
                              length(res$unmatched_samples), paste(res$unmatched_samples, collapse = ", ")))
         },
-        shiny::div(class = "text-muted small mb-1", sprintf("Saved to %s.", file.path(rv$project_dir, "06_output", "phyloseq.rds"))),
+        shiny::div(class = "alert alert-success small mb-2", sprintf("Saved to %s.", file.path(rv$project_dir, "06_output", "phyloseq.rds"))),
         shiny::verbatimTextOutput(ns("phyloseq_summary"))
       )
     })
@@ -373,19 +373,26 @@ mod_output_server <- function(id, rv, sample_table) {
           "%s applied: %d samples x %d taxa.", TRANSFORM_METHOD_LABELS[[res$method]],
           phyloseq::nsamples(res$phyloseq), phyloseq::ntaxa(res$phyloseq)
         )),
-        shiny::div(class = "text-muted small mb-1", sprintf("Saved to %s.", file.path(rv$project_dir, "06_output", "phyloseq_transformed.rds"))),
+        shiny::div(class = "alert alert-success small mb-2", sprintf("Saved to %s.", file.path(rv$project_dir, "06_output", "phyloseq_transformed.rds"))),
         shiny::h6("Transformed ASV table"),
         dt_output(ns("transform_table")),
         shiny::downloadButton(ns("download_transform_table"), "Download as CSV", class = "btn-outline-secondary btn-sm mb-2")
       )
     })
 
+    # On screen: one row per ASV, one column per sample, like the Taxonomy
+    # step's ASV table -- thousands of ASVs as columns made the browser build
+    # tens of thousands of cells. Whole-number tables (raw or rarefied counts)
+    # are shown as-is; relative abundance and CLR are rounded to 4
+    # significant digits. The CSV download keeps samples as rows.
     output$transform_table <- DT::renderDataTable({
       res <- transform_result()
       shiny::req(res)
-      num_cols <- which(vapply(res$table, is.numeric, logical(1)))
-      DT::formatSignif(DT::datatable(res$table, rownames = FALSE, options = list(scrollX = TRUE, pageLength = 15)),
-                       columns = num_cols, digits = 4)
+      mat <- t(as.matrix(res$table[-1]))
+      colnames(mat) <- res$table$Sample
+      if (any(mat != round(mat))) mat <- signif(mat, 4)
+      df <- data.frame(ASV = rownames(mat), mat, check.names = FALSE, row.names = NULL)
+      DT::datatable(df, rownames = FALSE, options = list(scrollX = TRUE, pageLength = 15))
     })
 
     output$download_transform_table <- shiny::downloadHandler(
