@@ -1,4 +1,4 @@
-# Step 9 -- Taxonomy Assignment (BLAST + MaarjAM), per DESIGN.md section 5.
+# Step 9 -- Taxonomy Assignment (BLAST + MaarjAM).
 # Defaults match the user's stated methodology: blastn vs a local MaarjAM
 # BLAST+ database, ASVs with >=97% identity, >=95% query coverage, and
 # e-value < 1e-50 are called AM fungal ASVs; everything else is unclassified.
@@ -170,8 +170,8 @@ mod_taxonomy_server <- function(id, rv, sample_table) {
 
     # --- MaarjAM database: point at an existing BLAST+ db, or index a
     # reference FASTA. Persists like the cutadapt path. No auto-download --
-    # DESIGN.md leaves the canonical MaarjAM source as an open question, and
-    # a URL wasn't confirmed, so this never guesses one. ---
+    # there is no single canonical MaarjAM download URL, so this never
+    # guesses one. ---
 
     db_path <- shiny::reactiveVal(NULL)
     db_info <- shiny::reactiveVal(NULL)

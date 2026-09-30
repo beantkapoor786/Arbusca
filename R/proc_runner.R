@@ -1,6 +1,6 @@
 # Launch/poll/cancel a non-blocking job per step, streaming its
 # stdout/stderr into rv$log[[step_id]]. Two runner backends share this same
-# interface (per DESIGN.md section 4.1):
+# interface:
 #   - launch_step()      processx, for external binaries (cutadapt, blastn)
 #   - launch_step_callr() callr::r_bg, for heavy in-R work (DADA2)
 # callr's r_bg handle is itself a processx handle under the hood, so

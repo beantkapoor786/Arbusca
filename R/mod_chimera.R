@@ -1,5 +1,5 @@
-# Step 8 -- Remove Chimeras (DADA2 removeBimeraDenovo), per DESIGN.md
-# section 5. Reads Step 7's seqtab.rds; writes seqtab_nochim.rds and the
+# Step 8 -- Remove Chimeras (DADA2 removeBimeraDenovo).
+# Reads Step 7's seqtab.rds; writes seqtab_nochim.rds and the
 # full read-tracking table (raw -> non-chimeric), counting the reads each
 # earlier step left on disk and pulling the denoised counts back from Step
 # 6's dadaF.rds/dadaR.rds. The final ASV

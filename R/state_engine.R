@@ -83,7 +83,7 @@ any_running <- function(rv) {
   !is.null(rv$running_step)
 }
 
-# Checkpoint scan (DESIGN.md section 4.4): a step counts as SUCCESS only if
+# Checkpoint scan: a step counts as SUCCESS only if
 # its *complete* expected output set is already on disk for every sample --
 # a partially-written step (some samples missing) is left alone so the user
 # resumes from the first genuinely incomplete step, not a half-finished one.

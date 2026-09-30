@@ -159,7 +159,7 @@ server <- function(input, output, session) {
   mod_permanova_server("permanova", rv, setup$sample_table)
   mod_ancombc_server("ancombc", rv, setup$sample_table)
 
-  # Resume support (DESIGN.md 4.4): whenever a project directory is picked
+  # Resume support: whenever a project directory is picked
   # (fresh selection, "Last used" shortcut, or Browse to a different one),
   # check which steps' complete output sets are already on disk and mark
   # them SUCCESS. Only jump the view to the resume point if something was

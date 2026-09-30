@@ -1,6 +1,6 @@
 # Step 4 -- Primer Removal (cutadapt). Presets come from inst/primer_presets.yaml
 # (each with its literature citation); the dropdown auto-selects the pair
-# that matches the detected read length, per DESIGN.md section 5.
+# that matches the detected read length.
 
 load_primer_presets <- function() {
   presets <- yaml::read_yaml("inst/primer_presets.yaml")

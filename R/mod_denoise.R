@@ -1,4 +1,4 @@
-# Step 6 -- Learn Error Rate and Denoise (DADA2 core), per DESIGN.md section 5.
+# Step 6 -- Learn Error Rate and Denoise (DADA2 core).
 # Two sub-stages on one page:
 #   6a. Learn error rate -- learnErrors(F/R), shown via plotErrors. Runs as
 #       its own self-contained job (not part of the pipeline FSM/progress

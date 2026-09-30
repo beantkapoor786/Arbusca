@@ -3,7 +3,7 @@
 # processed -- distinct from Step 5's "Quality Control" (mod_qc.R), which
 # filters/trims and happens to preview the *trimmed* reads. Not a pipeline
 # stage with artifacts, so it carries no rv$status entry and is always
-# treated as complete (see app.R's setup/qcheck special-casing).
+# treated as complete (see Arbusca.R's setup/qcheck special-casing).
 
 # Interactive version of a dada2::plotQualityProfile() ggplot (also used by
 # Step 5's preview), rebuilt from the data inside it rather than converted

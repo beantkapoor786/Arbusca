@@ -1,6 +1,5 @@
 # AMF 18S/SSU primer presets. Sequences are the inner/sequenced pair
 # (cutadapt strips these off the reads) -- not the outer nested-PCR primers.
-# See DESIGN.md section 5, Step 2 for the source table and citations.
 # dois: verified DOIs for each paper named in `citation`, in the same order --
 # rendered as clickable links next to the citation text.
 

@@ -1,7 +1,7 @@
-# Step 7 -- Merge Pairs (DADA2 mergePairs -> makeSequenceTable), per
-# DESIGN.md section 5's "Merge mode (AML1/AML2-aware)": overlap merge
-# (default, short amplicons), forward-only (drop R2 -- amplicon too long to
-# overlap, e.g. nested AML1/AML2), or concatenate (join without overlap).
+# Step 7 -- Merge Pairs (DADA2 mergePairs -> makeSequenceTable). Merge mode
+# is AML1/AML2-aware: overlap merge (default, short amplicons), forward-only
+# (drop R2 -- amplicon too long to overlap, e.g. nested AML1/AML2), or
+# concatenate (join without overlap).
 # Reads Step 6's dadaF.rds/dadaR.rds; writes seqtab.rds. The ASV length
 # histogram here is the first QC look at the assembled (pre-chimera) ASVs.
 

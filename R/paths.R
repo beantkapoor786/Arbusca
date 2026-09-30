@@ -1,5 +1,5 @@
-# Per-project directory layout, shared across pipeline steps (DESIGN.md
-# section 3's <project>/NN_stage/ convention).
+# Per-project directory layout, shared across pipeline steps: each stage
+# writes to <project>/NN_stage/.
 
 # Sample table (sample, full fwd path, full rev path) for the raw read pairs
 # sitting directly in project_dir, as named by mod_setup's sample_table()

@@ -1,4 +1,4 @@
-# Step 5 -- Quality Control (dada2::filterAndTrim). Per DESIGN.md section 5:
+# Step 5 -- Quality Control (dada2::filterAndTrim):
 # quality-profile plots before committing truncLen, sliders for
 # truncLen/maxEE, maxN=0 and rm.phix=TRUE fixed (DADA2 requirements, not
 # user-editable), maxEE relaxed vs typical 16S defaults since AMF SSU
