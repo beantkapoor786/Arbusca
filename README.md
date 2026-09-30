@@ -70,7 +70,7 @@ Or open `amfdada.Rproj` in RStudio, open `Arbusca.R`, and click **Run App**.
 ## Input data
 
 - **Reads:** one folder containing paired-end FASTQ files (R1/R2). In Setup, you choose the delimiter and which filename parts make up the sample name.
-- **Sample metadata** (needed from step 10): a CSV with one row per sample. One column must contain the same sample names used in Setup; you choose which column in the app. See [`metadata.csv`](metadata.csv) for an example:
+- **Sample metadata** (needed from step 10): a CSV with one row per sample. One column must contain the same sample names used in Setup; you choose which column in the app. For example:
 
   ```csv
   sample_id,site,treatment
