@@ -99,3 +99,23 @@ Figures, PERMANOVA and ANCOM-BC2 results are not written to the project folder; 
 Selecting a project folder again marks each step whose output files already exist as done, so you can pick up where you left off. Re-running a step deletes the output of every step after it, because that output was built from the previous run.
 
 App settings that persist across sessions, such as a custom `cutadapt` path, the BLAST database location and saved custom primers, are kept in `~/.arbusca/config.yaml`.
+
+## Citation
+
+If you use Arbusca, please cite its Zenodo record for the version you used.
+
+Please also cite the tools Arbusca runs:
+
+- **DADA2:** Callahan et al. (2016) DADA2: High-resolution sample inference from Illumina amplicon data. *Nature Methods* 13:581–583. [doi:10.1038/nmeth.3869](https://doi.org/10.1038/nmeth.3869)
+- **cutadapt:** Martin (2011) Cutadapt removes adapter sequences from high-throughput sequencing reads. *EMBnet.journal* 17:10–12. [doi:10.14806/ej.17.1.200](https://doi.org/10.14806/ej.17.1.200)
+- **BLAST+:** Camacho et al. (2009) BLAST+: architecture and applications. *BMC Bioinformatics* 10:421. [doi:10.1186/1471-2105-10-421](https://doi.org/10.1186/1471-2105-10-421)
+- **MaarjAM:** Öpik et al. (2010) The online database MaarjAM reveals global and ecosystemic distribution patterns in arbuscular mycorrhizal fungi (Glomeromycota). *New Phytologist* 188:223–241. [doi:10.1111/j.1469-8137.2010.03334.x](https://doi.org/10.1111/j.1469-8137.2010.03334.x)
+- **phyloseq:** McMurdie & Holmes (2013) phyloseq: an R package for reproducible interactive analysis and graphics of microbiome census data. *PLoS ONE* 8:e61217. [doi:10.1371/journal.pone.0061217](https://doi.org/10.1371/journal.pone.0061217)
+- **vegan** (Steps 11–12): cite the version you used; run `citation("vegan")` in R.
+- **ANCOM-BC2** (Step 13): Lin & Peddada (2024) Multigroup analysis of compositions of microbiomes with covariate adjustment and repeated measures. *Nature Methods* 21:83–91. [doi:10.1038/s41592-023-02092-7](https://doi.org/10.1038/s41592-023-02092-7)
+
+The primer preset you choose also shows its original citation in the app.
+
+## License
+
+Arbusca is released under the [MIT License](LICENSE).
