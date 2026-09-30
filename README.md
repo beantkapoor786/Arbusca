@@ -18,8 +18,8 @@ Each step runs in the background with a live log, and results are saved to the p
 | 8 | Remove chimeras | `dada2::removeBimeraDenovo` (consensus, pooled or per-sample) |
 | 9 | Taxonomy | `blastn` against a MaarjAM database (defaults: ≥97% identity, ≥95% coverage, e-value < 1e-50) |
 | 10 | Phyloseq object | Combines ASVs, taxonomy and sample metadata; optional rarefaction, relative abundance or CLR transform |
-| 11 | Figures | Rarefaction curves, alpha diversity, beta diversity ordinations |
-| 12 | PERMANOVA | `vegan::adonis2`, plus `betadisper` and pairwise tests |
+| 11 | Figures | Rarefaction curves; alpha diversity (Observed, Shannon, Simpson); NMDS and PCoA ordinations (Bray-Curtis, or Aitchison for CLR data) |
+| 12 | PERMANOVA | `vegan::adonis2`, plus a `betadisper` dispersion test and Bonferroni-corrected pairwise PERMANOVA |
 | 13 | Differential abundance | `ANCOMBC::ancombc2` at family, genus, virtual taxon or ASV level |
 
 ### Primer presets
@@ -27,8 +27,8 @@ Each step runs in the background with a live log, and results are saved to the p
 Defined in [`inst/primer_presets.yaml`](inst/primer_presets.yaml), each with its literature citation:
 
 - NS31 / AML2
-- nu-SSU-0595 / nu-SSU-0948 
-- nu-SSU-0450 / nu-SSU-0899 
+- nu-SSU-0595 / nu-SSU-0948 (default for 2x250)
+- nu-SSU-0450 / nu-SSU-0899 (default for 2x300)
 - AMV4.5NF / AMDGR
 - WANDA / AML2
 - AML1 / AML2 (nested PCR / PacBio)
@@ -65,12 +65,12 @@ From the repository folder, in R:
 shiny::runApp("Arbusca.R")
 ```
 
-Or open `amfdada.Rproj` in RStudio, open `Arbusca.R`, and click **Run App**.
+Or open `Arbusca.R` in RStudio and click **Run App**.
 
 ## Input data
 
-- **Reads:** one folder containing paired-end FASTQ files (R1/R2). In Setup, you choose the delimiter and which filename parts make up the sample name.
-- **Sample metadata** (needed from step 10): a CSV with one row per sample. One column must contain the same sample names used in Setup; you choose which column in the app. For example:
+- **Reads:** one folder containing paired-end FASTQ files (R1/R2). In Setup, you choose the delimiter and which filename parts make up the sample name. Forward and reverse files are paired by an `R1`/`R2` tag that must stand on its own in the filename (e.g. `Sample1_S1_L001_R1_001.fastq.gz`).
+- **Sample metadata** (needed from step 10): a `.csv` file or a tab-delimited `.txt` file with one row per sample. One column must contain the same sample names used in Setup; you choose which column in the app. For example:
 
   ```csv
   sample_id,site,treatment
@@ -88,8 +88,14 @@ Everything is written into subfolders of the project (reads) folder:
 ├── 02_trimmed/    primer-trimmed reads
 ├── 03_filtered/   filtered and trimmed reads
 ├── 04_denoise/    error models, denoised reads, sequence tables, read tracking
-├── 05_taxonomy/   BLAST results and taxonomy assignments
-└── 06_output/     phyloseq.rds and phyloseq_transformed.rds
+├── 05_taxonomy/   asv.fasta, raw and best-hit BLAST tables, taxonomy assignments
+└── 06_output/     phyloseq.rds, phyloseq_transformed.rds, asv_table_transformed.csv
 ```
+
+Figures, PERMANOVA and ANCOM-BC2 results are not written to the project folder; use the download buttons in each step to save them (PNG at 300 dpi, or CSV).
+
+### Resuming and re-running
+
+Selecting a project folder again marks each step whose output files already exist as done, so you can pick up where you left off. Re-running a step deletes the output of every step after it, because that output was built from the previous run.
 
 App settings that persist across sessions, such as a custom `cutadapt` path, the BLAST database location and saved custom primers, are kept in `~/.arbusca/config.yaml`.
