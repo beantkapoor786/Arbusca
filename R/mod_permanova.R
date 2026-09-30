@@ -299,7 +299,6 @@ mod_permanova_server <- function(id, rv, sample_table) {
         eval(parse(text = code), envir = env)
         list(
           permanova = env$permanova,
-          betadisper = env$betadisper_fit,
           dispersion = env$dispersion_test,
           pairwise = env$pairwise,
           n_samples = nrow(env$meta)
@@ -357,7 +356,7 @@ mod_permanova_server <- function(id, rv, sample_table) {
         p <- tab[1, "Pr(>F)"]
         interp <- if (p < 0.05) {
           shiny::div(class = "alert alert-warning small",
-            sprintf("Dispersion differs among %s groups (p = %s). PERMANOVA is sensitive to differences in spread, so a significant %s effect may partly reflect unequal within-group variability rather than a shift in community composition. Check the boxplot and ordination before interpreting it.",
+            sprintf("Dispersion differs among %s groups (p = %s). PERMANOVA is sensitive to differences in spread, so a significant %s effect may partly reflect unequal within-group variability rather than a shift in community composition. Check the ordination before interpreting it.",
                     v, signif(p, 3), v))
         } else {
           shiny::div(class = "alert alert-success small",
@@ -405,7 +404,7 @@ mod_permanova_server <- function(id, rv, sample_table) {
         ),
         result_card("Homogeneity of dispersion (betadisper)",
           if (length(disp_ui) == 0) shiny::div(class = "text-muted small", "No categorical variable in the formula, so there are no groups to compare dispersion between.")
-          else shiny::tagList(disp_ui, shiny::plotOutput(ns("dispersion_plot"), height = "320px")),
+          else disp_ui,
           actions = if (length(disp_ui) > 0) shiny::downloadButton(ns("download_dispersion"), "Download CSV", class = "btn-outline-secondary btn-sm")
         ),
         result_card("Pairwise PERMANOVA (Bonferroni)",
@@ -414,22 +413,6 @@ mod_permanova_server <- function(id, rv, sample_table) {
           actions = if (length(pair_ui) > 0) shiny::downloadButton(ns("download_pairwise"), "Download CSV", class = "btn-outline-secondary btn-sm")
         )
       )
-    })
-
-    output$dispersion_plot <- shiny::renderPlot({
-      res <- rv$artifacts[[step_id]]
-      shiny::req(res, length(res$betadisper) > 0)
-      df <- do.call(rbind, lapply(names(res$betadisper), function(v) {
-        bd <- res$betadisper[[v]]
-        data.frame(Variable = v, Group = as.character(bd$group), Distance = unname(bd$distances))
-      }))
-      ggplot2::ggplot(df, ggplot2::aes(x = Group, y = Distance, fill = Group)) +
-        ggplot2::geom_boxplot(outlier.shape = NA, alpha = 0.7) +
-        ggplot2::geom_jitter(width = 0.15, alpha = 0.6, size = 1.5) +
-        ggplot2::facet_wrap(~Variable, scales = "free_x") +
-        ggplot2::labs(x = NULL, y = "Distance to group centroid") +
-        ggplot2::theme_minimal() +
-        ggplot2::theme(legend.position = "none", axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
     })
 
     stamp <- function() format(Sys.time(), "%Y%m%d_%H%M%S")
