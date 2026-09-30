@@ -112,7 +112,7 @@ Please also cite the tools Arbusca runs:
 - **MaarjAM:** Öpik et al. (2010) The online database MaarjAM reveals global and ecosystemic distribution patterns in arbuscular mycorrhizal fungi (Glomeromycota). *New Phytologist* 188:223–241. [doi:10.1111/j.1469-8137.2010.03334.x](https://doi.org/10.1111/j.1469-8137.2010.03334.x)
 - **phyloseq:** McMurdie & Holmes (2013) phyloseq: an R package for reproducible interactive analysis and graphics of microbiome census data. *PLoS ONE* 8:e61217. [doi:10.1371/journal.pone.0061217](https://doi.org/10.1371/journal.pone.0061217)
 - **vegan** (Steps 11–12): cite the version you used; run `citation("vegan")` in R.
-- **ANCOM-BC2** (Step 13): Lin & Peddada (2024) Multigroup analysis of compositions of microbiomes with covariate adjustment and repeated measures. *Nature Methods* 21:83–91. [doi:10.1038/s41592-023-02092-7](https://doi.org/10.1038/s41592-023-02092-7)
+- **ANCOM-BC2** (Step 13): Lin & Peddada (2024) Multigroup analysis of compositions of microbiomes with covariate adjustments and repeated measures. *Nature Methods* 21:83–91. [doi:10.1038/s41592-023-02092-7](https://doi.org/10.1038/s41592-023-02092-7)
 
 The primer preset you choose also shows its original citation in the app.
 
