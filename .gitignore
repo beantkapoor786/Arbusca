@@ -14,3 +14,6 @@ comparison_amf_arbusca.R
 # Local data files
 Metadata_ITS.txt
 metadata.csv
+
+# Pipeline output, if the app is run with the repo as the project folder
+/0[1-6]_*/
