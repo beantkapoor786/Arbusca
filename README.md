@@ -45,7 +45,7 @@ shiny, bslib, bsicons, DT, plotly, ggplot2, processx, callr, fs, yaml, jsonlite,
 - [cutadapt](https://cutadapt.readthedocs.io/): used automatically if already installed. If not, the Primer removal step can install it for you into a private Python environment (`~/.arbusca/cutadapt-venv`); this only needs Python 3.
 - [BLAST+](https://blast.ncbi.nlm.nih.gov/doc/blast-help/downloadblastdata.html) (`blastn`, `makeblastdb`, `blastdbcmd`), which must be on your `PATH`: `conda install -c bioconda blast`
 
-**Reference database:** a MaarjAM SSU FASTA file or a BLAST database built from it. The app does not download it for you. Point it at an existing BLAST database, or give it the FASTA and it will build one with `makeblastdb`.
+**Reference database:** a MaarjAM SSU FASTA file or a BLAST database built from it. The app does not download it for you. Point it at the folder containing an existing BLAST database (the folder must hold only one), or give it the full path to the FASTA file and it will build one with `makeblastdb`.
 
 ## Installation
 

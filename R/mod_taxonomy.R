@@ -20,6 +20,26 @@ validate_blast_db <- function(db_path) {
   }, error = function(e) NULL)
 }
 
+# Resolves a directory to the prefix of the single nucleotide BLAST+ database
+# inside it (via blastdbcmd -list). Returns list(prefix=) on success or
+# list(error=) when the folder holds zero or several nucleotide databases.
+find_blast_db_in_dir <- function(dir) {
+  out <- tryCatch(
+    suppressWarnings(system2("blastdbcmd", c("-list", dir, "-list_outfmt", shQuote("%f\t%p")), stdout = TRUE, stderr = FALSE)),
+    error = function(e) character(0)
+  )
+  fields <- strsplit(out[nzchar(out)], "\t", fixed = TRUE)
+  prefixes <- vapply(fields[vapply(fields, function(x) length(x) == 2 && x[2] == "Nucleotide", logical(1))],
+                     `[`, character(1), 1)
+  if (length(prefixes) == 0) return(list(error = "No nucleotide BLAST+ database found in that directory."))
+  if (length(prefixes) > 1) {
+    return(list(error = paste0("Found more than one nucleotide BLAST+ database in that directory (",
+                               paste(basename(prefixes), collapse = ", "),
+                               "). Point at a directory containing only one.")))
+  }
+  list(prefix = prefixes)
+}
+
 # Writes one FASTA record per ASV (sequence itself, named ASV1, ASV2, ...)
 # from a seqtab's column names -- the representative sequences DADA2 uses as
 # column names throughout.
@@ -192,18 +212,23 @@ mod_taxonomy_server <- function(id, rv, sample_table) {
     build_log <- shiny::reactiveVal(character(0))
 
     shiny::observeEvent(input$validate_db_path, {
-      shiny::req(nzchar(input$db_path_input))
-      if (grepl(" ", input$db_path_input, fixed = TRUE)) {
-        output$db_validation <- shiny::renderUI(shiny::div(class = "text-danger small mt-1",
-          "BLAST+ cannot handle paths containing spaces (-db treats spaces as database-name separators). Move the database to a path with no spaces."))
-        return()
+      db_dir <- path.expand(trimws(input$db_path_input %||% ""))
+      shiny::req(nzchar(db_dir))
+      show_error <- function(msg) output$db_validation <- shiny::renderUI(shiny::div(class = "text-danger small mt-1", msg))
+      if (grepl(" ", db_dir, fixed = TRUE)) {
+        return(show_error("BLAST+ cannot handle paths containing spaces (-db treats spaces as database-name separators). Move the database to a path with no spaces."))
       }
-      info <- validate_blast_db(input$db_path_input)
+      if (!dir.exists(db_dir)) {
+        return(show_error("Directory not found -- point at the folder containing the BLAST+ database files."))
+      }
+      found <- find_blast_db_in_dir(db_dir)
+      if (!is.null(found$error)) return(show_error(found$error))
+      info <- validate_blast_db(found$prefix)
       if (is.null(info)) {
-        output$db_validation <- shiny::renderUI(shiny::div(class = "text-danger small mt-1", "Not a valid BLAST+ database (blastdbcmd -info failed)."))
+        show_error("Not a valid BLAST+ database (blastdbcmd -info failed).")
       } else {
-        write_app_config(utils::modifyList(read_app_config(), list(maarjam_db_path = input$db_path_input)))
-        db_path(input$db_path_input)
+        write_app_config(utils::modifyList(read_app_config(), list(maarjam_db_path = found$prefix)))
+        db_path(found$prefix)
         db_info(info)
         output$db_validation <- shiny::renderUI(NULL)
       }
@@ -293,13 +318,13 @@ mod_taxonomy_server <- function(id, rv, sample_table) {
         shiny::h6("MaarjAM BLAST+ database"),
         shiny::div(class = "text-muted small mb-2", "Point at an existing BLAST+ database, or supply a reference FASTA to index."),
         shiny::fluidRow(
-          shiny::column(9, shiny::textInput(ns("db_path_input"), "Path to existing BLAST+ database (prefix, no extension)", width = "100%")),
+          shiny::column(9, shiny::textInput(ns("db_path_input"), "Path to directory containing an existing BLAST+ database", width = "100%")),
           shiny::column(3, shiny::actionButton(ns("validate_db_path"), "Validate & save", class = "btn-outline-primary w-100 mt-4"))
         ),
         shiny::uiOutput(ns("db_validation")),
         shiny::div(class = "text-muted small my-2", "-- or --"),
         shiny::fluidRow(
-          shiny::column(9, shiny::textInput(ns("fasta_path_input"), "Path to MaarjAM reference FASTA (will be indexed with makeblastdb)", width = "100%")),
+          shiny::column(9, shiny::textInput(ns("fasta_path_input"), "Full path to MaarjAM reference FASTA file (will be indexed with makeblastdb)", width = "100%")),
           shiny::column(3, shiny::actionButton(ns("build_db"), "Build index", class = "btn-primary w-100 mt-4"))
         ),
         shiny::div(class = "mb-1", status_badge(build_status())),
