@@ -19,6 +19,22 @@ mod_denoise_ui <- function(id) {
     results = shiny::tagList(
       shiny::uiOutput(ns("input_status")),
       result_card("6a. Learn error rate",
+        shiny::fluidRow(
+          shiny::column(6,
+            help_label("Error estimation function", "loessErrfun (default): fits error rates to Illumina quality scores with loess. PacBioErrfun: for PacBio CCS reads. noqualErrfun: ignores quality scores entirely."),
+            shiny::selectInput(
+              ns("err_fun"), NULL,
+              choices = c("loessErrfun (default)" = "loessErrfun", "PacBioErrfun" = "PacBioErrfun", "noqualErrfun" = "noqualErrfun"),
+              width = "100%"
+            )
+          ),
+          shiny::column(6,
+            help_label("OMEGA_A", "Abundance p-value threshold for forming a new partition (ASV). Lower values are more conservative. DADA2 default: 1e-40."),
+            shiny::numericInput(ns("omega_a"), NULL, value = 1e-40, min = 0, max = 1, width = "100%")
+          )
+        ),
+        help_label("Priors (one sequence per line)", "Sequences expected to be present (e.g. from a reference or prior run). DADA2 gives these extra sensitivity when forming partitions. Leave empty for none."),
+        shiny::textAreaInput(ns("priors"), NULL, rows = 3, width = "100%", placeholder = "ACGT..."),
         shiny::div(
           class = "amf-run-row mb-3",
           shiny::actionButton(ns("learn"), "Learn error rate", icon = bsicons::bs_icon("play-fill"), class = "btn-primary"),
@@ -125,11 +141,20 @@ mod_denoise_server <- function(id, rv, sample_table) {
       out_dir <- denoise_dir_path(rv$project_dir)
       fs::dir_create(out_dir)
       multithread <- .Platform$OS.type != "windows"
+      omega_a <- input$omega_a
+      if (!is.numeric(omega_a) || is.na(omega_a) || omega_a <= 0 || omega_a > 1) {
+        shiny::showNotification("OMEGA_A must be a number in (0, 1].", type = "error")
+        return()
+      }
+      priors <- toupper(trimws(strsplit(input$priors %||% "", "\n", fixed = TRUE)[[1]]))
+      priors <- priors[nzchar(priors)]
 
-      learn_job <- function(filtFs, filtRs, out_dir, multithread) {
+      learn_job <- function(filtFs, filtRs, out_dir, multithread, err_fun, omega_a, priors) {
         library(dada2)
-        errF <- learnErrors(filtFs, multithread = multithread, verbose = TRUE)
-        errR <- learnErrors(filtRs, multithread = multithread, verbose = TRUE)
+        # Passed by name: resolve inside the bare callr session.
+        err_fun <- get(err_fun, envir = asNamespace("dada2"))
+        errF <- learnErrors(filtFs, errorEstimationFunction = err_fun, multithread = multithread, verbose = TRUE, OMEGA_A = omega_a, priors = priors)
+        errR <- learnErrors(filtRs, errorEstimationFunction = err_fun, multithread = multithread, verbose = TRUE, OMEGA_A = omega_a, priors = priors)
         saveRDS(errF, file.path(out_dir, "errF.rds"))
         saveRDS(errR, file.path(out_dir, "errR.rds"))
         list(errF = errF, errR = errR)
@@ -137,7 +162,10 @@ mod_denoise_server <- function(id, rv, sample_table) {
 
       h <- callr::r_bg(
         func = learn_job,
-        args = list(filtFs = files$fwd, filtRs = files$rev, out_dir = out_dir, multithread = multithread),
+        args = list(
+          filtFs = files$fwd, filtRs = files$rev, out_dir = out_dir, multithread = multithread,
+          err_fun = input$err_fun, omega_a = omega_a, priors = priors
+        ),
         stdout = "|", stderr = "|", supervise = TRUE
       )
       learn_handle(h)
